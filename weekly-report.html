@@ -8,6 +8,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SheetJS library to export genuine Excel files -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <!-- App Firebase Logic -->
+    <script src="firebase-config.js"></script>
+    <script src="auth.js"></script>
     <style>
         /* Specific Styles for Excel Weekly Report */
         .report-wrapper {
@@ -242,9 +251,22 @@
             picker.value = `${yyyy}-${mm}-${dd}`;
 
             // Load Data
-            const roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
-            const history = JSON.parse(localStorage.getItem('attendance_history')) || {};
+            let roster = [];
+            let history = {};
             const showAllToggle = document.getElementById('show-all-weeks-toggle');
+
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    db.collection('users').doc(user.uid).onSnapshot((docSnap) => {
+                        if (docSnap.exists) {
+                            const cloudData = docSnap.data();
+                            roster = cloudData.roster || [];
+                            history = cloudData.history || {};
+                            buildWeeklyGrid();
+                        }
+                    });
+                }
+            });
 
             // Helper to get Monday Date
             function getMondayDate(dObj) {

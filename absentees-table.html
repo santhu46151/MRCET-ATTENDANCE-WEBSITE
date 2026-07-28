@@ -7,6 +7,15 @@
     <title>Absentee Details Table</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <!-- App Firebase Logic -->
+    <script src="firebase-config.js"></script>
+    <script src="auth.js"></script>
     <style>
         /* Excel Table Specific Styles */
         .excel-container {
@@ -201,58 +210,78 @@
             document.getElementById('table-date-display').innerText = formattedDate;
 
             // Load State
-            const roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
-            const history = JSON.parse(localStorage.getItem('attendance_history')) || {};
-            const dateRecord = history[dateKey] || {};
-            const isHoliday = dateRecord.isHoliday;
-            const dateRecordAttendance = dateRecord.attendance || {};
-            const absentees = roster.filter(s => !isHoliday && dateRecordAttendance[s.rollNo] === 'absent');
-            
-            // Sort by Roll No
-            absentees.sort((a, b) => a.rollNo.localeCompare(b.rollNo));
+            let roster = [];
+            let history = {};
 
-            const badge = document.getElementById('absentee-summary-badge');
-            
-            const table = document.getElementById('details-excel-table');
-            const tbody = document.getElementById('excel-table-body');
-            const noData = document.getElementById('no-absentees-state');
-
-            if (isHoliday) {
-                badge.innerText = "Holiday Mode";
-                badge.style.background = "var(--primary-light)";
-                badge.style.color = "var(--primary)";
-                badge.style.borderColor = "var(--primary)";
-                table.style.display = 'none';
-                noData.innerHTML = `
-                    <i class="fas fa-umbrella-beach" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
-                    <h2>Holiday Mode Active</h2>
-                    <p style="margin-top: 0.5rem; font-weight: 600;">Reason: ${dateRecord.holidayReason || 'School Holiday'}</p>
-                `;
-                noData.style.display = 'block';
-                return;
-            }
-
-            badge.innerText = `${absentees.length} Absentee${absentees.length !== 1 ? 's' : ''}`;
-
-            if (absentees.length === 0) {
-                table.style.display = 'none';
-                noData.style.display = 'block';
-                return;
-            }
-
-            // Render rows
-            absentees.forEach((student, index) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="text-align: center; background-color: var(--bg-secondary); font-weight: 700;">${index + 1}</td>
-                    <td style="font-weight: 700; color: var(--danger);">${student.rollNo}</td>
-                    <td style="font-weight: 600; color: var(--text-primary);">${student.name}</td>
-                    <td><a href="tel:${student.phone}">${student.phone}</a></td>
-                    <td>${student.fatherName}</td>
-                    <td><a href="tel:${student.fatherPhone}">${student.fatherPhone}</a></td>
-                `;
-                tbody.appendChild(tr);
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    db.collection('users').doc(user.uid).onSnapshot((docSnap) => {
+                        if (docSnap.exists) {
+                            const cloudData = docSnap.data();
+                            roster = cloudData.roster || [];
+                            history = cloudData.history || {};
+                            renderTable();
+                        }
+                    });
+                }
             });
+
+            function renderTable() {
+                const dateRecord = history[dateKey] || {};
+                const isHoliday = dateRecord.isHoliday;
+                const dateRecordAttendance = dateRecord.attendance || {};
+                const absentees = roster.filter(s => !isHoliday && dateRecordAttendance[s.rollNo] === 'absent');
+                
+                // Sort by Roll No
+                absentees.sort((a, b) => a.rollNo.localeCompare(b.rollNo));
+
+                const badge = document.getElementById('absentee-summary-badge');
+                const table = document.getElementById('details-excel-table');
+                const tbody = document.getElementById('excel-table-body');
+                const noData = document.getElementById('no-absentees-state');
+
+                tbody.innerHTML = ''; // Clear previous contents
+
+                if (isHoliday) {
+                    badge.innerText = "Holiday Mode";
+                    badge.style.background = "var(--primary-light)";
+                    badge.style.color = "var(--primary)";
+                    badge.style.borderColor = "var(--primary)";
+                    table.style.display = 'none';
+                    noData.innerHTML = `
+                        <i class="fas fa-umbrella-beach" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
+                        <h2>Holiday Mode Active</h2>
+                        <p style="margin-top: 0.5rem; font-weight: 600;">Reason: ${dateRecord.holidayReason || 'School Holiday'}</p>
+                    `;
+                    noData.style.display = 'block';
+                    return;
+                }
+
+                badge.innerText = `${absentees.length} Absentee${absentees.length !== 1 ? 's' : ''}`;
+
+                if (absentees.length === 0) {
+                    table.style.display = 'none';
+                    noData.style.display = 'block';
+                    return;
+                }
+
+                table.style.display = 'table';
+                noData.style.display = 'none';
+
+                // Render rows
+                absentees.forEach((student, index) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="text-align: center; background-color: var(--bg-secondary); font-weight: 700;">${index + 1}</td>
+                        <td style="font-weight: 700; color: var(--danger);">${student.rollNo}</td>
+                        <td style="font-weight: 600; color: var(--text-primary);">${student.name}</td>
+                        <td><a href="tel:${student.phone}">${student.phone}</a></td>
+                        <td>${student.fatherName}</td>
+                        <td><a href="tel:${student.fatherPhone}">${student.fatherPhone}</a></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
         });
     </script>
 </body>

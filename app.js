@@ -71,14 +71,14 @@ document.addEventListener('DOMContentLoaded', () => {
         { rollNo: "24N35A6724", name: "Y SHAHID", phone: "8118911868", fatherName: "Y SIDDAIAH", fatherPhone: "6301888304", status: "present" }
     ];
 
-    // State Variables
-    let roster = JSON.parse(localStorage.getItem('attendance_roster'));
+    // State Variables (Declared globally so sync.js can synchronize Firestore data in real-time)
+    roster = JSON.parse(localStorage.getItem('attendance_roster'));
     if (!roster || roster.length === 0 || !roster[0] || typeof roster[0].rollNo === 'number' || !roster[0].hasOwnProperty('phone')) {
         roster = defaultStudents;
         localStorage.setItem('attendance_roster', JSON.stringify(roster));
     }
 
-    let attendanceHistory = JSON.parse(localStorage.getItem('attendance_history')) || {};
+    attendanceHistory = JSON.parse(localStorage.getItem('attendance_history')) || {};
     // Migrate legacy attendanceHistory entries
     Object.keys(attendanceHistory).forEach(dateKey => {
         const entry = attendanceHistory[dateKey];
@@ -208,6 +208,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveState() {
         localStorage.setItem('attendance_history', JSON.stringify(attendanceHistory));
         localStorage.setItem('attendance_roster', JSON.stringify(roster));
+        
+        // Push state changes to Cloud Firestore in the background
+        if (typeof window.uploadStateToCloud === 'function') {
+            window.uploadStateToCloud(roster, attendanceHistory);
+        }
     }
 
     // Calculate Statistics
@@ -681,9 +686,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Global update helper to reload UI states on snapshot triggers
+    window.updateUI = function() {
+        updateStats();
+        renderRoster();
+        renderAbsenteesList();
+        renderHistoryLogs();
+    };
+
     // Initialize App Render
-    updateStats();
-    renderRoster();
-    renderAbsenteesList();
-    renderHistoryLogs();
+    window.updateUI();
 });

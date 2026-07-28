@@ -19,7 +19,10 @@
         <!-- Dashboard Header -->
         <header class="glass-panel" id="main-header">
             <div class="header-info">
-                <h1>Attendance Dashboard</h1>
+                <h1 style="display: flex; align-items: center; gap: 0.5rem;">
+                    Attendance Dashboard
+                    <span id="sync-dot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #10b981; vertical-align: middle;" title="Synced to Cloud"></span>
+                </h1>
                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
                     <i class="far fa-calendar-alt" style="color: var(--primary);"></i>
                     <input type="date" id="attendance-date-picker" style="border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); outline: none; cursor: pointer; transition: var(--transition);">
@@ -37,6 +40,9 @@
                 </button>
                 <button class="btn btn-primary" id="add-student-btn" title="Add new student to roster">
                     <i class="fas fa-plus"></i> Add Student
+                </button>
+                <button class="btn btn-outline" id="logout-btn" title="Sign out of portal" style="color: var(--danger); border-color: var(--danger-border);">
+                    <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
             </div>
         </header>
@@ -215,7 +221,32 @@
         </footer>
     </div>
 
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <!-- App Firebase Logic -->
+    <script src="firebase-config.js"></script>
+    <script src="auth.js"></script>
+    <script src="firestore.js"></script>
+    <script src="sync.js"></script>
+
     <!-- Script -->
     <script src="app.js"></script>
+    
+    <script>
+        // Logout handler binding
+        document.addEventListener('DOMContentLoaded', () => {
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    if (confirm("Are you sure you want to logout? Cloud data will remain saved in database.")) {
+                        authManager.logout();
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
