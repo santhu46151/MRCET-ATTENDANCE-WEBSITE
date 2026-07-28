@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A highly modern, interactive Class Attendance Tracker to monitor daily attendance, view real-time statistics, search rosters, and manage student details.">
+    <title>Class Attendance Dashboard</title>
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="style.css">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Glow Backdrops -->
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <div class="container">
+        <!-- Dashboard Header -->
+        <header class="glass-panel" id="main-header">
+            <div class="header-info">
+                <h1>Attendance Dashboard</h1>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                    <i class="far fa-calendar-alt" style="color: var(--primary);"></i>
+                    <input type="date" id="attendance-date-picker" style="border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); outline: none; cursor: pointer; transition: var(--transition);">
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline" id="theme-toggle" title="Toggle Light/Dark Mode">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <a href="weekly-report.html" class="btn btn-outline" id="weekly-report-btn" title="View Weekly Attendance report">
+                    <i class="fas fa-calendar-week"></i> Weekly Report
+                </a>
+                <button class="btn btn-outline" id="export-btn" title="Export Attendance Report">
+                    <i class="fas fa-file-export"></i> Export
+                </button>
+                <button class="btn btn-primary" id="add-student-btn" title="Add new student to roster">
+                    <i class="fas fa-plus"></i> Add Student
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Counter Cards -->
+        <section class="stats-grid" aria-label="Class Attendance Statistics">
+            <!-- Total Students Card -->
+            <div class="stat-card glass-panel">
+                <div class="stat-content">
+                    <h3>Total Class Size</h3>
+                    <div class="stat-value" id="total-count">0</div>
+                </div>
+                <div class="stat-icon blue">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>
+
+            <!-- Present Students Card -->
+            <div class="stat-card glass-panel">
+                <div class="stat-content">
+                    <h3>Present Students</h3>
+                    <div class="stat-value" id="present-count">0</div>
+                </div>
+                <div class="stat-icon green">
+                    <i class="fas fa-user-check"></i>
+                </div>
+            </div>
+
+            <!-- Absent Students Card -->
+            <div class="stat-card glass-panel">
+                <div class="stat-content">
+                    <h3>Absent Students</h3>
+                    <div class="stat-value" id="absent-count">0</div>
+                </div>
+                <div class="stat-icon red">
+                    <i class="fas fa-user-times"></i>
+                </div>
+            </div>
+
+            <!-- Percentage Card -->
+            <div class="stat-card glass-panel">
+                <div class="stat-content">
+                    <h3>Present Percentage</h3>
+                    <div class="stat-value" id="percentage-value">0%</div>
+                </div>
+                <div class="progress-container">
+                    <svg class="progress-ring" width="60" height="60">
+                        <circle class="progress-ring__circle" stroke="var(--bg-secondary)" stroke-width="6" fill="transparent" r="26" cx="30" cy="30"/>
+                        <circle class="progress-ring__circle" id="percentage-ring" stroke="var(--success)" stroke-width="6" stroke-linecap="round" fill="transparent" r="26" cx="30" cy="30" stroke-dasharray="163.36" stroke-dashoffset="163.36"/>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dashboard Content Grid -->
+        <main class="dashboard-content">
+            <!-- Left Side: Directory and Roster Grid -->
+            <section class="directory-panel glass-panel" aria-label="Student Directory">
+                <div class="panel-header">
+                    <h2>Student Roster</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-outline" id="mark-holiday-btn" style="color: var(--primary); border-color: var(--primary-light);" title="Mark this date as a holiday">
+                            <i class="fas fa-umbrella-beach"></i> Mark Holiday
+                        </button>
+                        <button class="btn btn-outline" id="mark-all-present" title="Mark all students present">Mark All Present</button>
+                        <button class="btn btn-outline" id="mark-all-absent" title="Mark all students absent">Mark All Absent</button>
+                    </div>
+                </div>
+                <!-- Search & Filters -->
+                <div class="search-filter-row" id="search-filter-row">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-input" placeholder="Search by roll number or name...">
+                    </div>
+                </div>
+                <!-- Holiday Banner (Toggled by JS) -->
+                <div id="holiday-banner" style="display: none; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; padding: 4rem 2rem; text-align: center; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px dashed var(--card-border);">
+                    <div style="font-size: 3.5rem; color: var(--primary);"><i class="fas fa-umbrella-beach"></i></div>
+                    <h2 style="font-weight: 800; font-size: 1.5rem;">Holiday Mode</h2>
+                    <p id="holiday-reason-text" style="font-size: 1.1rem; color: var(--text-secondary); font-weight: 600; max-width: 400px; line-height: 1.4;">Reason: School Holiday</p>
+                    <button class="btn btn-outline" id="remove-holiday-btn" style="color: var(--primary); border-color: var(--primary); margin-top: 0.5rem;">
+                        <i class="fas fa-edit"></i> Resume Class Attendance
+                    </button>
+                </div>
+                <!-- Student Card Grid -->
+                <div class="student-grid" id="students-grid-container">
+                    <!-- Cards populated by JS -->
+                </div>
+            </section>
+
+            <!-- Right Side: Absentees Panel -->
+            <section class="absent-panel glass-panel" aria-label="Absentee Tracking Panel">
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; border-bottom: 1px solid var(--card-border); padding-bottom: 1rem; margin-bottom: 0.5rem;">
+                    <h2 style="font-size: 1.1rem; display: flex; flex-direction: column; gap: 0.25rem;">
+                        <span id="absent-header-date" style="font-weight: 700;">DD/MM/YYYY - Absentees:</span>
+                        <span class="absent-badge" id="absent-badge-count" style="align-self: flex-start;">0 Absent</span>
+                    </h2>
+                    <a href="absentees-table.html" class="btn btn-primary" style="justify-content: center; font-size: 0.85rem; padding: 0.5rem 1rem;">
+                        <i class="fas fa-table"></i> View Excel Table
+                    </a>
+                </div>
+                <!-- Copiable Absentee list -->
+                <div style="display: flex; flex-direction: column; gap: 1rem; padding-top: 0.5rem;">
+                    <div id="absent-copy-box" style="font-size: 1.1rem; font-weight: 700; color: var(--danger); background: var(--bg-secondary); padding: 1.25rem 1rem; border-radius: var(--radius-md); border: 1px dashed var(--danger-border); line-height: 1.6; word-break: break-all; min-height: 100px; display: flex; align-items: center; justify-content: center; text-align: center;">
+                        No absentees
+                    </div>
+                    <button class="btn btn-outline" id="copy-absent-list-btn" style="justify-content: center;" title="Copy to clipboard">
+                        <i class="far fa-copy"></i> Copy List
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Attendance History Log Panel -->
+        <section class="glass-panel" id="attendance-history-panel" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <h2 style="font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                    <i class="fas fa-history" style="color: var(--primary);"></i>
+                    Attendance History Logs (All Saved Dates)
+                </h2>
+                <button class="btn btn-outline" id="clear-history-btn" style="color: var(--danger); border-color: var(--danger-border); font-size: 0.85rem;" title="Clear all saved history logs">
+                    <i class="fas fa-trash-alt"></i> Clear All History
+                </button>
+            </div>
+            
+            <div id="history-log-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; max-height: 250px; overflow-y: auto; padding-right: 0.25rem;">
+                <!-- Populate with date-logs dynamically -->
+            </div>
+            
+            <div id="empty-history-state" style="text-align: center; padding: 2rem; color: var(--text-muted); display: none;">
+                <i class="fas fa-folder-open" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                No saved attendance history logs found. Mark attendance to save!
+            </div>
+        </section>
+
+        <!-- Add Student Modal Dialog -->
+        <div class="modal" id="add-student-modal" aria-hidden="true" role="dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Add New Student</h3>
+                    <button class="modal-close" id="modal-close-btn" aria-label="Close modal dialog">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="add-student-form">
+                    <div class="form-group">
+                        <label for="new-roll-no">Roll Number</label>
+                        <input type="text" id="new-roll-no" required placeholder="e.g. 23N31A67K9">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-name">Full Name</label>
+                        <input type="text" id="new-name" required placeholder="e.g. James Smith">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-phone">Phone Number</label>
+                        <input type="tel" id="new-phone" required placeholder="e.g. 7780108900">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-father-name">Father's Name</label>
+                        <input type="text" id="new-father-name" required placeholder="e.g. Shaik Nagoor">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-father-phone">Father's Phone Number</label>
+                        <input type="tel" id="new-father-phone" required placeholder="e.g. 6309668456">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" id="modal-cancel-btn">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Student</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2026 Class Attendance System. Crafted with <i class="fas fa-heart" style="color: var(--danger)"></i> for teachers.</p>
+        </footer>
+    </div>
+
+    <!-- Script -->
+    <script src="app.js"></script>
+</body>
+</html>
