@@ -258,12 +258,10 @@
             auth.onAuthStateChanged((user) => {
                 if (user) {
                     db.collection('users').doc(user.uid).onSnapshot((docSnap) => {
-                        if (docSnap.exists) {
-                            const cloudData = docSnap.data();
-                            roster = cloudData.roster || [];
-                            history = cloudData.history || {};
-                            buildWeeklyGrid();
-                        }
+                        const cloudData = docSnap.exists ? docSnap.data() : {};
+                        roster = cloudData.roster || JSON.parse(localStorage.getItem('attendance_roster')) || [];
+                        history = cloudData.history || JSON.parse(localStorage.getItem('attendance_history')) || {};
+                        buildWeeklyGrid();
                     });
                 }
             });
@@ -443,132 +441,20 @@
             // Excel Export Button Handler
             const exportExcelBtn = document.getElementById('export-excel-btn');
             exportExcelBtn.addEventListener('click', () => {
-                const wb = XLSX.utils.book_new();
-
-                // Get Monday keys
-                let mondayKeys = [];
-                if (showAllToggle.checked) {
-                    const loggedDates = Object.keys(history);
-                    const keysSet = new Set();
-                    loggedDates.forEach(dateStr => {
-                        keysSet.add(getMondayKey(dateStr));
-                    });
-                    mondayKeys = Array.from(keysSet).sort();
+                const tables = document.querySelectorAll('#reports-container table');
+                if (tables.length === 0) {
+                    alert("No report data available to export!");
+                    return;
                 }
-
-                if (mondayKeys.length === 0 || !showAllToggle.checked) {
-                    mondayKeys = [getMondayKey(picker.value)];
-                }
-                const container = document.getElementById('reports-container').cloneNode(true);
                 
-                // Add inline styling to nodes for native Excel compatibility
-                container.querySelectorAll('.report-wrapper').forEach(wrapper => {
-                    wrapper.style.marginBottom = '35px';
-                    
-                    // Keep the embedded base64 image logo and align it for Excel compatibility
-                    const logoDiv = wrapper.querySelector('div');
-                    if (logoDiv && logoDiv.querySelector('img')) {
-                        logoDiv.style.textAlign = 'center';
-                        logoDiv.style.marginBottom = '15px';
-                        logoDiv.style.borderBottom = '2px solid #000000';
-                        logoDiv.style.paddingBottom = '8px';
-                        
-                        // Limit size in Excel worksheet to fit column widths
-                        const img = logoDiv.querySelector('img');
-                        img.style.maxWidth = '850px';
-                        img.style.height = 'auto';
-                    }
+                const wb = XLSX.utils.book_new();
+                tables.forEach((table, index) => {
+                    // Export each weekly sheet
+                    const ws = XLSX.utils.table_to_sheet(table);
+                    XLSX.utils.book_append_sheet(wb, ws, `Week ${index + 1}`);
                 });
-
-                container.querySelectorAll('.report-subtitle').forEach(subtitle => {
-                    subtitle.style.textAlign = 'center';
-                    subtitle.style.fontWeight = '800';
-                    subtitle.style.fontSize = '12pt';
-                    subtitle.style.fontFamily = 'Arial, sans-serif';
-                });
-
-                container.querySelectorAll('.section-badge').forEach(badge => {
-                    badge.style.textAlign = 'center';
-                    badge.style.fontWeight = '800';
-                    badge.style.fontSize = '11pt';
-                    badge.style.backgroundColor = '#e2e8f0';
-                    badge.style.border = '1px solid #000000';
-                    badge.style.padding = '5px';
-                    badge.style.margin = '10px auto';
-                    badge.style.width = '180px';
-                });
-
-                container.querySelectorAll('table').forEach(table => {
-                    table.style.width = '100%';
-                    table.style.borderCollapse = 'collapse';
-                    table.style.fontFamily = 'Arial, sans-serif';
-                    table.style.fontSize = '9pt';
-                });
-
-                container.querySelectorAll('th').forEach(th => {
-                    th.style.border = '1px solid #000000';
-                    th.style.backgroundColor = '#f2f2f2';
-                    th.style.fontWeight = '700';
-                    th.style.padding = '6px';
-                    th.style.textAlign = 'center';
-                });
-
-                container.querySelectorAll('td').forEach(td => {
-                    td.style.border = '1px solid #000000';
-                    td.style.padding = '5px';
-                    td.style.textAlign = 'center';
-                });
-
-                container.querySelectorAll('.student-name-cell').forEach(cell => {
-                    cell.style.textAlign = 'left';
-                    cell.style.fontWeight = '600';
-                });
-
-                container.querySelectorAll('.absent-cell').forEach(cell => {
-                    cell.style.color = '#ff0000';
-                    cell.style.fontWeight = '700';
-                    cell.style.backgroundColor = '#fee2e2';
-                });
-
-                container.querySelectorAll('.totals-row td').forEach(cell => {
-                    cell.style.fontWeight = '700';
-                    cell.style.backgroundColor = '#f2f2f2';
-                });
-
-                let htmlContent = `
-                <html xmlns:o="urn:schemas-microsoft-com:office:office" 
-                      xmlns:x="urn:schemas-microsoft-com:office:excel" 
-                      xmlns="http://www.w3.org/TR/REC-html40">
-                <head>
-                    <meta charset="utf-8">
-                    <!--[if gte mso 9]>
-                    <xml>
-                        <x:ExcelWorkbook>
-                            <x:ExcelWorksheets>
-                                <x:ExcelWorksheet>
-                                    <x:Name>Weekly Attendance</x:Name>
-                                    <x:WorksheetOptions>
-                                        <x:DisplayGridlines/>
-                                    </x:WorksheetOptions>
-                                </x:ExcelWorksheet>
-                            </x:ExcelWorksheets>
-                        </x:ExcelWorkbook>
-                    </xml>
-                    <![endif]-->
-                </head>
-                <body>
-                    ${container.innerHTML}
-                </body>
-                </html>
-                `;
-
-                const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel' });
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = `Weekly_Attendance_Report_Section_IV-D.xls`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                
+                XLSX.writeFile(wb, 'Weekly_Attendance_Report_Section_IV-D.xlsx');
             });
 
             // Build grid on load and picker change

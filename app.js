@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
         attendanceHistory[selectedDate].attendance[rollNo] = status;
-        localStorage.setItem('attendance_history', JSON.stringify(attendanceHistory));
+        saveState();
     }
 
     // DOM Elements

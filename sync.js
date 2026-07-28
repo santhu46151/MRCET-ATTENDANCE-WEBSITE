@@ -42,6 +42,12 @@ async function initializeSync(uid) {
   }
 
   // Setup real-time listener using onSnapshot
+  const syncDot = document.getElementById('sync-dot');
+  if (syncDot) {
+    syncDot.style.backgroundColor = '#f59e0b'; // yellow for syncing
+    syncDot.title = 'Syncing...';
+  }
+
   userDocRef.onSnapshot((docSnap) => {
     if (docSnap.exists) {
       const data = docSnap.data();
@@ -52,6 +58,11 @@ async function initializeSync(uid) {
         window.attendanceHistory = data.history;
       }
 
+      if (syncDot) {
+        syncDot.style.backgroundColor = '#10b981'; // green for synced
+        syncDot.title = 'Synced to Cloud';
+      }
+
       // Automatically refresh the DOM
       if (typeof window.updateUI === 'function') {
         window.updateUI();
@@ -59,18 +70,36 @@ async function initializeSync(uid) {
     }
   }, (err) => {
     console.error("onSnapshot error:", err);
+    if (syncDot) {
+      syncDot.style.backgroundColor = '#ef4444'; // red for failed
+      syncDot.title = `Sync Error: ${err.message}`;
+    }
   });
 }
 
 // Global upload helper called whenever client state is modified
 window.uploadStateToCloud = function(updatedRoster, updatedHistory) {
   if (!currentUserId) return;
+  const syncDot = document.getElementById('sync-dot');
+  if (syncDot) {
+    syncDot.style.backgroundColor = '#f59e0b'; // yellow for syncing
+    syncDot.title = 'Syncing changes...';
+  }
 
   db.collection('users').doc(currentUserId).set({
     roster: updatedRoster,
     history: updatedHistory,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }, { merge: true }).catch((err) => {
+  }, { merge: true }).then(() => {
+    if (syncDot) {
+      syncDot.style.backgroundColor = '#10b981'; // green for synced
+      syncDot.title = 'Synced to Cloud';
+    }
+  }).catch((err) => {
     console.error("Sync to Cloud failed:", err);
+    if (syncDot) {
+      syncDot.style.backgroundColor = '#ef4444'; // red for error
+      syncDot.title = `Sync failed: ${err.message}`;
+    }
   });
 };
