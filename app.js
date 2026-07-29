@@ -132,8 +132,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // DOM Elements
     const gridContainer = document.getElementById('students-grid-container');
-    const absentCopyBox = document.getElementById('absent-copy-box');
-    const copyAbsentListBtn = document.getElementById('copy-absent-list-btn');
+    const absentMessageBox = document.getElementById('absent-message-box');
+    const copyMessageBtn = document.getElementById('copy-message-btn');
+    const generateMessageBtn = document.getElementById('generate-message-btn');
+    const absentMessageFormat = document.getElementById('absent-message-format');
     const totalCountEl = document.getElementById('total-count');
     const presentCountEl = document.getElementById('present-count');
     const absentCountEl = document.getElementById('absent-count');
@@ -363,59 +365,56 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (isHolidayActive()) {
-            absentCopyBox.innerText = "Holiday Mode Active";
-            absentCopyBox.style.color = "var(--text-muted)";
-            absentCopyBox.style.fontSize = "1rem";
-            absentCopyBox.style.justifyContent = "center";
-            absentCopyBox.style.borderStyle = "dashed";
-            copyAbsentListBtn.disabled = true;
+            absentMessageBox.value = "Holiday Mode Active";
+            copyMessageBtn.disabled = true;
+            generateMessageBtn.disabled = true;
             return;
         }
 
-        if (absentees.length === 0) {
-            absentCopyBox.innerText = "No absentees";
-            absentCopyBox.style.color = "var(--text-muted)";
-            absentCopyBox.style.fontSize = "1rem";
-            absentCopyBox.style.justifyContent = "center";
-            absentCopyBox.style.borderStyle = "dashed";
-            copyAbsentListBtn.disabled = true;
-            return;
-        }
+        generateMessageBtn.disabled = false;
+        
+        // Build the message block
+        const total = activeStudents.length;
+        const absentCount = absentees.length;
+        const presentCount = total - absentCount;
+        const sessionVal = absentMessageFormat.value.toUpperCase();
+        
+        const rollSuffixes = absentees.map(s => {
+            const suffix = s.rollNo.slice(-2);
+            // If it starts with letter (e.g. K9, L0), keep it. If it is lateral entries like 15, 16, keep them.
+            return suffix;
+        }).join(', ');
 
-        const summaryText = absentees.map(s => s.rollNo.slice(-2)).join(', ');
-        absentCopyBox.innerText = summaryText;
-        absentCopyBox.style.color = "var(--danger)";
-        absentCopyBox.style.fontSize = "1.25rem";
-        absentCopyBox.style.justifyContent = "flex-start";
-        absentCopyBox.style.textAlign = "left";
-        absentCopyBox.style.borderStyle = "solid";
-        copyAbsentListBtn.disabled = false;
+        const messageText = `IV CSE DS D\n${formattedDate} ${sessionVal} Absentees :\n\n${rollSuffixes || 'None'}\n\nAbsent - ${absentCount}\nPresent - ${presentCount}\nTotal - ${total}`;
+        absentMessageBox.value = messageText;
+        copyMessageBtn.disabled = false;
     }
 
-    // Copy to clipboard handler
-    copyAbsentListBtn.addEventListener('click', () => {
-        const activeStudents = getStudents();
-        const absentees = activeStudents.filter(s => s.status === 'absent');
-        if (absentees.length === 0) return;
-        
-        absentees.sort((a, b) => a.rollNo.localeCompare(b.rollNo));
-        const summaryText = absentees.map(s => s.rollNo.slice(-2)).join(', ');
+    // Format selection trigger re-generation
+    absentMessageFormat.addEventListener('change', () => {
+        renderAbsenteesList();
+    });
 
-        navigator.clipboard.writeText(summaryText).then(() => {
-            const originalHTML = copyAbsentListBtn.innerHTML;
-            copyAbsentListBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-            copyAbsentListBtn.style.background = 'var(--success)';
-            copyAbsentListBtn.style.color = 'white';
-            copyAbsentListBtn.style.borderColor = 'var(--success)';
+    // Generate message button click handler
+    generateMessageBtn.addEventListener('click', () => {
+        renderAbsenteesList();
+    });
+
+    // Copy to clipboard handler
+    copyMessageBtn.addEventListener('click', () => {
+        const textToCopy = absentMessageBox.value;
+        if (!textToCopy) return;
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            const originalHTML = copyMessageBtn.innerHTML;
+            copyMessageBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            copyMessageBtn.style.background = '#059669';
             setTimeout(() => {
-                copyAbsentListBtn.innerHTML = originalHTML;
-                copyAbsentListBtn.style.background = '';
-                copyAbsentListBtn.style.color = '';
-                copyAbsentListBtn.style.borderColor = '';
+                copyMessageBtn.innerHTML = originalHTML;
+                copyMessageBtn.style.background = '';
             }, 1500);
         });
     });
-
 
     // Search input handler
     searchInput.addEventListener('input', (e) => {

@@ -146,11 +146,20 @@
                 </div>
                 <!-- Copiable Absentee list -->
                 <div style="display: flex; flex-direction: column; gap: 1rem; padding-top: 0.5rem;">
-                    <div id="absent-copy-box" style="font-size: 1.1rem; font-weight: 700; color: var(--danger); background: var(--bg-secondary); padding: 1.25rem 1rem; border-radius: var(--radius-md); border: 1px dashed var(--danger-border); line-height: 1.6; word-break: break-all; min-height: 100px; display: flex; align-items: center; justify-content: center; text-align: center;">
-                        No absentees
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label for="absent-message-format" style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Message Format:</label>
+                        <select id="absent-message-format" style="padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-weight: 600; outline: none; cursor: pointer;">
+                            <option value="an">AN (Afternoon Session)</option>
+                            <option value="fn">FN (Forenoon Session)</option>
+                            <option value="both">FN & AN Session</option>
+                        </select>
                     </div>
-                    <button class="btn btn-outline" id="copy-absent-list-btn" style="justify-content: center;" title="Copy to clipboard">
-                        <i class="far fa-copy"></i> Copy List
+                    <button class="btn btn-primary" id="generate-message-btn" style="justify-content: center; font-size: 1rem; padding: 0.75rem 1rem; width: 100%;">
+                        Generate Message
+                    </button>
+                    <textarea id="absent-message-box" readonly style="font-family: monospace; font-size: 1rem; font-weight: 600; color: var(--text-primary); background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); line-height: 1.5; min-height: 160px; resize: vertical; outline: none;" placeholder="Generated message will appear here..."></textarea>
+                    <button class="btn btn-primary" id="copy-message-btn" style="justify-content: center; background: #10b981; border-color: #10b981; font-size: 1rem; padding: 0.75rem 1rem; width: 100%; color: white;" title="Copy to clipboard">
+                        Copy Message
                     </button>
                 </div>
             </section>
