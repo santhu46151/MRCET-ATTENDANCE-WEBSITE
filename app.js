@@ -364,6 +364,11 @@ document.addEventListener('DOMContentLoaded', () => {
             weeklyBtnLink.href = `weekly-report.html?date=${selectedDate}`;
         }
 
+        const monthlyBtnLink = document.getElementById('monthly-report-btn');
+        if (monthlyBtnLink) {
+            monthlyBtnLink.href = `monthly-report.html?date=${selectedDate}`;
+        }
+
         if (isHolidayActive()) {
             absentMessageBox.value = "Holiday Mode Active";
             copyMessageBtn.disabled = true;
