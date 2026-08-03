@@ -362,7 +362,11 @@
                         weekDates.forEach((col, colIdx) => {
                             const record = history[col.key];
                             if (record && record.isHoliday) {
-                                rowHTML += `<td style="background-color: #fef08a; color: var(--primary); font-weight: 700; text-align: center;">H</td>`;
+                                if (index === 0) {
+                                    const reason = record.holidayReason || "Holiday";
+                                    const stackedReason = reason.substring(0, 10).toUpperCase().split('').join('<br>');
+                                    rowHTML += `<td rowspan="${roster.length}" style="background-color: #fef08a; color: #4f46e5; font-weight: 700; text-align: center; font-size: 0.65rem; line-height: 1.2; padding: 2px 0; word-break: break-all; vertical-align: middle;" title="${reason}">${stackedReason}</td>`;
+                                }
                             } else {
                                 const attendance = (record && record.attendance) || {};
                                 const status = attendance[student.rollNo] || "present";
@@ -396,7 +400,8 @@
                     weekDates.forEach((col, colIdx) => {
                         const record = history[col.key];
                         if (record && record.isHoliday) {
-                            totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: var(--primary); text-align: center;">HOL</td>`;
+                            const shortReason = (record.holidayReason || "HOL").substring(0, 3).toUpperCase();
+                            totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: #4f46e5; text-align: center; font-size: 0.6rem;" title="${record.holidayReason || 'Holiday'}">${shortReason}</td>`;
                         } else {
                             totalsHTML += `<td style="text-align: center;">${presenteesPerDay[colIdx]}</td>`;
                         }

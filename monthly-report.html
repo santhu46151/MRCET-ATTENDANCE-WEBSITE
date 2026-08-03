@@ -319,6 +319,9 @@
                 const presenteesPerDay = Array(monthDates.length).fill(0);
                 let tbodyHTML = '';
 
+                // Track the holiday columns to skip rendering cells in row loops and merge them vertically
+                // Since tbody cells are normally drawn per student, to span vertically we can conditionally draw 
+                // a single <td rowspan="roster.length"> inside the FIRST row, and omit the cell for subsequent rows.
                 roster.sort((a,b) => a.rollNo.localeCompare(b.rollNo)).forEach((student, index) => {
                     let rowHTML = `
                         <tr>
@@ -330,9 +333,21 @@
                     let presentCount = 0;
                     monthDates.forEach((col, colIdx) => {
                         const record = history[col.key];
-                        const isHoliday = col.isSunday || (record && record.isHoliday);
-                        if (isHoliday) {
-                            rowHTML += `<td style="background-color: #fef08a; color: #4f46e5; font-weight: 700; text-align: center;">H</td>`;
+                        const isSunday = col.isSunday;
+                        const isLoggedHoliday = record && record.isHoliday;
+                        
+                        if (isSunday) {
+                            if (index === 0) {
+                                // Vertical text layout for SUNDAY spanning all rows
+                                rowHTML += `<td rowspan="${roster.length}" style="background-color: #fef08a; color: #4f46e5; font-weight: 700; text-align: center; font-size: 0.65rem; line-height: 1.2; padding: 2px 0; word-break: break-all; width: 25px; min-width: 25px; vertical-align: middle;">S<br>U<br>N<br>D<br>A<br>Y</td>`;
+                            }
+                        } else if (isLoggedHoliday) {
+                            if (index === 0) {
+                                // Vertical text layout for custom holiday reason spanning all rows
+                                const reason = record.holidayReason || "Holiday";
+                                const stackedReason = reason.substring(0, 10).toUpperCase().split('').join('<br>');
+                                rowHTML += `<td rowspan="${roster.length}" style="background-color: #fef08a; color: #b45309; font-weight: 700; text-align: center; font-size: 0.65rem; line-height: 1.2; padding: 2px 0; word-break: break-all; width: 25px; min-width: 25px; vertical-align: middle;" title="${reason}">${stackedReason}</td>`;
+                            }
                         } else {
                             const attendance = (record && record.attendance) || {};
                             const status = attendance[student.rollNo] || "present";
@@ -365,9 +380,13 @@
                 `;
                 monthDates.forEach((col, colIdx) => {
                     const record = history[col.key];
-                    const isHoliday = col.isSunday || (record && record.isHoliday);
-                    if (isHoliday) {
-                        totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: #4f46e5; text-align: center;">HOL</td>`;
+                    const isSunday = col.isSunday;
+                    const isLoggedHoliday = record && record.isHoliday;
+                    if (isSunday) {
+                        totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: #4f46e5; text-align: center; font-size: 0.6rem;">SUN</td>`;
+                    } else if (isLoggedHoliday) {
+                        const shortReason = (record.holidayReason || "HOL").substring(0, 3).toUpperCase();
+                        totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: #b45309; text-align: center; font-size: 0.6rem;" title="${record.holidayReason || 'Holiday'}">${shortReason}</td>`;
                     } else {
                         totalsHTML += `<td style="text-align: center;">${presenteesPerDay[colIdx]}</td>`;
                     }
