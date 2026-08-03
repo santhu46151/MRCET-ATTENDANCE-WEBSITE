@@ -134,7 +134,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const gridContainer = document.getElementById('students-grid-container');
     const absentMessageBox = document.getElementById('absent-message-box');
     const copyMessageBtn = document.getElementById('copy-message-btn');
-    const generateMessageBtn = document.getElementById('generate-message-btn');
     const absentMessageFormat = document.getElementById('absent-message-format');
     const totalCountEl = document.getElementById('total-count');
     const presentCountEl = document.getElementById('present-count');
@@ -372,12 +371,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isHolidayActive()) {
             absentMessageBox.value = "Holiday Mode Active";
             copyMessageBtn.disabled = true;
-            generateMessageBtn.disabled = true;
             return;
         }
 
-        generateMessageBtn.disabled = false;
-        
         // Build the message block
         const total = activeStudents.length;
         const absentCount = absentees.length;
@@ -397,11 +393,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Format selection trigger re-generation
     absentMessageFormat.addEventListener('change', () => {
-        renderAbsenteesList();
-    });
-
-    // Generate message button click handler
-    generateMessageBtn.addEventListener('click', () => {
         renderAbsenteesList();
     });
 
