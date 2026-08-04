@@ -303,11 +303,33 @@ document.addEventListener('DOMContentLoaded', () => {
             const suffix = rollStr ? rollStr.slice(-2).toUpperCase() : '??';
             card.innerHTML = `
                 <div class="student-avatar">${suffix}</div>
-                <div class="student-info">
+                <div class="student-info" style="flex: 1;">
                     <span class="student-roll">${student.rollNo}</span>
                     <span class="student-name" title="${student.name}">${student.name}</span>
                 </div>
+                <button class="delete-student-btn" aria-label="Delete ${student.name}" style="background: transparent; border: none; color: var(--danger); cursor: pointer; padding: 0.5rem; display: flex; align-items: center; justify-content: center; z-index: 5; font-size: 1.1rem; opacity: 0.7; transition: opacity 0.2s;">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
             `;
+
+            // Handle student deletion on button click
+            const deleteBtn = card.querySelector('.delete-student-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // prevent triggering status toggle click
+                    if (confirm(`Are you sure you want to delete ${student.name} (${student.rollNo}) from the roster?`)) {
+                        roster = roster.filter(s => s.rollNo !== student.rollNo);
+                        saveState();
+                        updateStats();
+                        renderRoster();
+                        renderAbsenteesList();
+                        renderHistoryLogs();
+                    }
+                });
+                deleteBtn.addEventListener('keydown', (e) => {
+                    e.stopPropagation();
+                });
+            }
 
             // Toggle student status on click
             card.addEventListener('click', () => {
