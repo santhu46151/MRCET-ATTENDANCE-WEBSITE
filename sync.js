@@ -48,7 +48,8 @@ async function initializeSync(uid) {
     syncDot.title = 'Syncing...';
   }
 
-  userDocRef.onSnapshot((docSnap) => {
+  // Setup real-time listener using onSnapshot with includeMetadataChanges options
+  userDocRef.onSnapshot({ includeMetadataChanges: true }, (docSnap) => {
     if (docSnap.exists) {
       const data = docSnap.data();
       let hasChanges = false;

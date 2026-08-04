@@ -14,8 +14,3 @@ if (firebase.apps.length === 0) {
 }
 const auth = firebase.auth();
 const db = firebase.firestore();
-
-// Enable offline persistence
-db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
-  console.warn("Firestore offline persistence failed to enable:", err.code);
-});
