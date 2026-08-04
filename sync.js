@@ -1,4 +1,6 @@
-const API_BASE_URL = window.location.origin;
+const API_BASE_URL = window.location.origin.includes('file://') || window.location.origin.includes(':5500')
+  ? 'http://localhost:3000' 
+  : window.location.origin;
 
 // Initialize Synchronization
 const token = localStorage.getItem('auth_token');

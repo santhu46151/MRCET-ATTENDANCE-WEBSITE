@@ -1,5 +1,7 @@
 // Local server endpoint URI
-const API_BASE_URL = window.location.origin;
+const API_BASE_URL = window.location.origin.includes('file://') || window.location.origin.includes(':5500')
+  ? 'http://localhost:3000' 
+  : window.location.origin;
 
 // Authentication state listener and guards
 document.addEventListener('DOMContentLoaded', () => {
