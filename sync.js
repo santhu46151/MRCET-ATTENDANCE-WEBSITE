@@ -51,11 +51,17 @@ async function initializeSync(uid) {
   userDocRef.onSnapshot((docSnap) => {
     if (docSnap.exists) {
       const data = docSnap.data();
+      let hasChanges = false;
+
       if (data.roster) {
         window.roster = data.roster;
+        localStorage.setItem('attendance_roster', JSON.stringify(data.roster));
+        hasChanges = true;
       }
       if (data.history) {
         window.attendanceHistory = data.history;
+        localStorage.setItem('attendance_history', JSON.stringify(data.history));
+        hasChanges = true;
       }
 
       if (syncDot) {
@@ -64,7 +70,7 @@ async function initializeSync(uid) {
       }
 
       // Automatically refresh the DOM
-      if (typeof window.updateUI === 'function') {
+      if (hasChanges && typeof window.updateUI === 'function') {
         window.updateUI();
       }
     }

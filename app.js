@@ -681,6 +681,58 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Export Backup JSON
+    const exportBackupBtn = document.getElementById('export-backup-btn');
+    if (exportBackupBtn) {
+        exportBackupBtn.addEventListener('click', () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+                roster: roster,
+                history: attendanceHistory
+            }, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `attendance_backup_${selectedDate}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        });
+    }
+
+    // Import Backup JSON
+    const importBackupBtn = document.getElementById('import-backup-btn');
+    const importBackupFile = document.getElementById('import-backup-file');
+    if (importBackupBtn && importBackupFile) {
+        importBackupBtn.addEventListener('click', () => {
+            importBackupFile.click();
+        });
+
+        importBackupFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const importedData = JSON.parse(evt.target.result);
+                    if (importedData && importedData.roster && importedData.history) {
+                        if (confirm("This will overwrite your current laptop data with the backup file. Proceed?")) {
+                            roster = importedData.roster;
+                            attendanceHistory = importedData.history;
+                            saveState();
+                            window.updateUI();
+                            alert("Import successful! The database has been updated and synced.");
+                        }
+                    } else {
+                        alert("Invalid backup file format. Roster or history keys are missing.");
+                    }
+                } catch (err) {
+                    alert("Error parsing backup JSON: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        });
+    }
+
     // Global update helper to reload UI states on snapshot triggers
     window.updateUI = function() {
         updateStats();
