@@ -41,6 +41,9 @@
                 <button class="btn btn-outline" id="export-btn" title="Export Attendance Report">
                     <i class="fas fa-file-export"></i> Export
                 </button>
+                <button class="btn btn-outline" id="delete-student-menu-btn" title="Delete a student from roster" style="color: var(--danger); border-color: var(--danger-border);">
+                    <i class="fas fa-trash-alt"></i> Delete Student
+                </button>
                 <button class="btn btn-primary" id="add-student-btn" title="Add new student to roster">
                     <i class="fas fa-plus"></i> Add Student
                 </button>
@@ -226,6 +229,30 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline" id="modal-cancel-btn">Cancel</button>
                         <button type="submit" class="btn btn-primary">Add Student</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Delete Student Modal Dialog -->
+        <div class="modal" id="delete-student-modal" aria-hidden="true" role="dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Delete Student</h3>
+                    <button class="modal-close" id="delete-modal-close-btn" aria-label="Close modal dialog">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="delete-student-form">
+                    <div class="form-group">
+                        <label for="delete-student-select">Select Student to Delete</label>
+                        <select id="delete-student-select" required style="width: 100%; padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 600; outline: none; cursor: pointer;">
+                            <!-- Options filled dynamically -->
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" id="delete-modal-cancel-btn">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="background: var(--danger); border-color: var(--danger);">Delete Student</button>
                     </div>
                 </form>
             </div>

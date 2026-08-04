@@ -303,33 +303,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const suffix = rollStr ? rollStr.slice(-2).toUpperCase() : '??';
             card.innerHTML = `
                 <div class="student-avatar">${suffix}</div>
-                <div class="student-info" style="flex: 1;">
+                <div class="student-info">
                     <span class="student-roll">${student.rollNo}</span>
                     <span class="student-name" title="${student.name}">${student.name}</span>
                 </div>
-                <button class="delete-student-btn" aria-label="Delete ${student.name}" style="background: transparent; border: none; color: var(--danger); cursor: pointer; padding: 0.5rem; display: flex; align-items: center; justify-content: center; z-index: 5; font-size: 1.1rem; opacity: 0.7; transition: opacity 0.2s;">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
             `;
-
-            // Handle student deletion on button click
-            const deleteBtn = card.querySelector('.delete-student-btn');
-            if (deleteBtn) {
-                deleteBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // prevent triggering status toggle click
-                    if (confirm(`Are you sure you want to delete ${student.name} (${student.rollNo}) from the roster?`)) {
-                        roster = roster.filter(s => s.rollNo !== student.rollNo);
-                        saveState();
-                        updateStats();
-                        renderRoster();
-                        renderAbsenteesList();
-                        renderHistoryLogs();
-                    }
-                });
-                deleteBtn.addEventListener('keydown', (e) => {
-                    e.stopPropagation();
-                });
-            }
 
             // Toggle student status on click
             card.addEventListener('click', () => {
@@ -490,6 +468,71 @@ document.addEventListener('DOMContentLoaded', () => {
     addStudentModal.addEventListener('click', (e) => {
         if (e.target === addStudentModal) toggleModal(false);
     });
+
+    // Delete Student Modal Interaction
+    const deleteStudentModal = document.getElementById('delete-student-modal');
+    const deleteStudentMenuBtn = document.getElementById('delete-student-menu-btn');
+    const deleteModalCloseBtn = document.getElementById('delete-modal-close-btn');
+    const deleteModalCancelBtn = document.getElementById('delete-modal-cancel-btn');
+    const deleteStudentForm = document.getElementById('delete-student-form');
+    const deleteStudentSelect = document.getElementById('delete-student-select');
+
+    function toggleDeleteModal(show) {
+        if (show) {
+            // Populate select box with current roster options
+            deleteStudentSelect.innerHTML = '<option value="" disabled selected>-- Select a Student --</option>';
+            // Sort roster alphabetically by rollNo
+            const sortedRoster = [...roster].sort((a, b) => a.rollNo.localeCompare(b.rollNo));
+            sortedRoster.forEach(student => {
+                const opt = document.createElement('option');
+                opt.value = student.rollNo;
+                opt.innerText = `${student.rollNo} - ${student.name}`;
+                deleteStudentSelect.appendChild(opt);
+            });
+
+            deleteStudentModal.classList.add('active');
+            deleteStudentModal.setAttribute('aria-hidden', 'false');
+        } else {
+            deleteStudentModal.classList.remove('active');
+            deleteStudentModal.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    if (deleteStudentMenuBtn) {
+        deleteStudentMenuBtn.addEventListener('click', () => toggleDeleteModal(true));
+    }
+    if (deleteModalCloseBtn) {
+        deleteModalCloseBtn.addEventListener('click', () => toggleDeleteModal(false));
+    }
+    if (deleteModalCancelBtn) {
+        deleteModalCancelBtn.addEventListener('click', () => toggleDeleteModal(false));
+    }
+    if (deleteStudentModal) {
+        deleteStudentModal.addEventListener('click', (e) => {
+            if (e.target === deleteStudentModal) toggleDeleteModal(false);
+        });
+    }
+
+    if (deleteStudentForm) {
+        deleteStudentForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const rollNoToDelete = deleteStudentSelect.value;
+            if (!rollNoToDelete) return;
+
+            const student = roster.find(s => s.rollNo === rollNoToDelete);
+            const studentName = student ? student.name : rollNoToDelete;
+
+            if (confirm(`Are you sure you want to delete ${studentName} (${rollNoToDelete}) from the roster?`)) {
+                roster = roster.filter(s => s.rollNo !== rollNoToDelete);
+                saveState();
+                updateStats();
+                renderRoster();
+                renderAbsenteesList();
+                renderHistoryLogs();
+                toggleDeleteModal(false);
+            }
+        });
+    }
 
     // Form Submission: Add Student
     addStudentForm.addEventListener('submit', (e) => {
