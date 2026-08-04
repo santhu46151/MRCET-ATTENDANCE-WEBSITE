@@ -8,13 +8,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Firebase SDK Compat -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-
-    <!-- App Firebase Logic -->
-    <script src="firebase-config.js"></script>
+    <!-- App Configuration and Auth -->
     <script src="auth.js"></script>
     <style>
         /* Excel Table Specific Styles */
@@ -209,20 +203,17 @@
             const formattedDate = `${d}/${m}/${y}`;
             document.getElementById('table-date-display').innerText = formattedDate;
 
-            // Load State
-            let roster = [];
-            let history = {};
+            // Load Data from LocalStorage (synced by auth/sync manager API)
+            let roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
+            let history = JSON.parse(localStorage.getItem('attendance_history')) || {};
+            renderTable();
 
-            auth.onAuthStateChanged((user) => {
-                if (user) {
-                    db.collection('users').doc(user.uid).onSnapshot((docSnap) => {
-                        const cloudData = docSnap.exists ? docSnap.data() : {};
-                        roster = cloudData.roster || JSON.parse(localStorage.getItem('attendance_roster')) || [];
-                        history = cloudData.history || JSON.parse(localStorage.getItem('attendance_history')) || {};
-                        renderTable();
-                    });
-                }
-            });
+            // Set up local polling update listener to reflect edits dynamically
+            setInterval(() => {
+                roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
+                history = JSON.parse(localStorage.getItem('attendance_history')) || {};
+                renderTable();
+            }, 3000);
 
             function renderTable() {
                 const dateRecord = history[dateKey] || {};

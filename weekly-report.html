@@ -9,13 +9,7 @@
     <!-- SheetJS library to export genuine Excel files -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-    <!-- Firebase SDK Compat -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-
-    <!-- App Firebase Logic -->
-    <script src="firebase-config.js"></script>
+    <!-- App Configuration and Auth -->
     <script src="auth.js"></script>
     <style>
         /* Specific Styles for Excel Weekly Report */
@@ -250,21 +244,17 @@
             const dd = String(selectedDateObj.getDate()).padStart(2, '0');
             picker.value = `${yyyy}-${mm}-${dd}`;
 
-            // Load Data
-            let roster = [];
-            let history = {};
+            // Load Data from LocalStorage (synced by auth/sync manager API)
+            let roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
+            let history = JSON.parse(localStorage.getItem('attendance_history')) || {};
             const showAllToggle = document.getElementById('show-all-weeks-toggle');
 
-            auth.onAuthStateChanged((user) => {
-                if (user) {
-                    db.collection('users').doc(user.uid).onSnapshot((docSnap) => {
-                        const cloudData = docSnap.exists ? docSnap.data() : {};
-                        roster = cloudData.roster || JSON.parse(localStorage.getItem('attendance_roster')) || [];
-                        history = cloudData.history || JSON.parse(localStorage.getItem('attendance_history')) || {};
-                        buildWeeklyGrid();
-                    });
-                }
-            });
+            // Set up local polling update listener to reflect edits dynamically
+            setInterval(() => {
+                roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
+                history = JSON.parse(localStorage.getItem('attendance_history')) || {};
+                buildWeeklyGrid();
+            }, 3000);
 
             // Helper to get Monday Date
             function getMondayDate(dObj) {

@@ -108,13 +108,7 @@
     <div class="bg-glow"></div>
     <div class="bg-glow-2"></div>
 
-    <!-- Firebase SDK Compat -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-
     <!-- Configuration and Auth -->
-    <script src="firebase-config.js"></script>
     <script src="auth.js"></script>
 
     <div class="login-card glass-panel">
@@ -148,9 +142,6 @@
                         <i class="fas fa-sign-in-alt"></i> Login
                     </button>
                 </div>
-                <div class="text-links">
-                    <a href="#" id="link-forgot">Forgot Password?</a>
-                </div>
             </form>
         </section>
     </div>
@@ -161,7 +152,6 @@
             const usernameInput = document.getElementById('auth-username');
             const passwordInput = document.getElementById('auth-password');
             const btnSignup = document.getElementById('btn-signup');
-            const linkForgot = document.getElementById('link-forgot');
 
             // Sign Up Handler
             btnSignup.addEventListener('click', async () => {
@@ -193,23 +183,6 @@
                     window.location.href = 'index.html';
                 } catch (e) {
                     alert(`Login failed: ${e.message}`);
-                }
-            });
-
-            // Forgot Password Handler
-            linkForgot.addEventListener('click', async (e) => {
-                e.preventDefault();
-                const username = usernameInput.value.trim().toLowerCase();
-                if (!username) {
-                    alert("Please enter your Username / Email first!");
-                    return;
-                }
-
-                try {
-                    await authManager.resetPassword(username);
-                    alert("Password reset email sent! Check your inbox.");
-                } catch (e) {
-                    alert(`Reset failed: ${e.message}`);
                 }
             });
         });

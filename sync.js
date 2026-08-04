@@ -1,68 +1,42 @@
-let currentUserId = null;
-let isMigrating = false;
+const API_BASE_URL = window.location.origin;
 
-auth.onAuthStateChanged((user) => {
-  if (user) {
-    currentUserId = user.uid;
-    initializeSync(user.uid);
-  } else {
-    currentUserId = null;
-  }
-});
+// Initialize Synchronization
+const token = localStorage.getItem('auth_token');
+if (token) {
+  initializeSync();
+}
 
-async function initializeSync(uid) {
-  if (isMigrating) return;
-  const userDocRef = db.collection('users').doc(uid);
-
-  try {
-    const docSnap = await userDocRef.get();
-    
-    // Check if cloud document exists. If not, import legacy LocalStorage records
-    if (!docSnap.exists) {
-      isMigrating = true;
-      console.log("Seeding Cloud Firestore with existing local database...");
-      
-      const localRoster = localStorage.getItem('attendance_roster');
-      const localHistory = localStorage.getItem('attendance_history');
-      
-      const rosterData = localRoster ? JSON.parse(localRoster) : [];
-      const historyData = localHistory ? JSON.parse(localHistory) : {};
-
-      await userDocRef.set({
-        roster: rosterData,
-        history: historyData,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      
-      console.log("Migration complete!");
-      isMigrating = false;
-    }
-  } catch (err) {
-    console.error("Error during database initialization:", err);
-  }
-
-  // Setup real-time listener using onSnapshot
+async function initializeSync() {
   const syncDot = document.getElementById('sync-dot');
   if (syncDot) {
     syncDot.style.backgroundColor = '#f59e0b'; // yellow for syncing
     syncDot.title = 'Syncing...';
   }
 
-  // Setup real-time listener using onSnapshot with includeMetadataChanges options
-  userDocRef.onSnapshot({ includeMetadataChanges: true }, (docSnap) => {
-    if (docSnap.exists) {
-      const data = docSnap.data();
-      let hasChanges = false;
+  // Fetch initial data from local Node backend REST API
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/sync`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+      }
+    });
 
-      if (data.roster) {
+    if (response.status === 401 || response.status === 403) {
+      // Token expired, log out user
+      authManager.logout();
+      return;
+    }
+
+    const data = await response.json();
+    if (response.ok) {
+      if (data.roster && data.roster.length > 0) {
         window.roster = data.roster;
         localStorage.setItem('attendance_roster', JSON.stringify(data.roster));
-        hasChanges = true;
       }
       if (data.history) {
         window.attendanceHistory = data.history;
         localStorage.setItem('attendance_history', JSON.stringify(data.history));
-        hasChanges = true;
       }
 
       if (syncDot) {
@@ -70,43 +44,88 @@ async function initializeSync(uid) {
         syncDot.title = 'Synced to Cloud';
       }
 
-      // Automatically refresh the DOM
-      if (hasChanges && typeof window.updateUI === 'function') {
+      // Refresh UI representation
+      if (typeof window.updateUI === 'function') {
         window.updateUI();
       }
     }
-  }, (err) => {
-    console.error("onSnapshot error:", err);
+  } catch (err) {
+    console.error('Error fetching REST DB sync states:', err);
     if (syncDot) {
       syncDot.style.backgroundColor = '#ef4444'; // red for failed
       syncDot.title = `Sync Error: ${err.message}`;
     }
-  });
+  }
+
+  // Short-polling interval (every 3 seconds) to emulate real-time sync across devices automatically
+  setInterval(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sync`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        let changed = false;
+
+        if (data.roster && JSON.stringify(data.roster) !== localStorage.getItem('attendance_roster')) {
+          window.roster = data.roster;
+          localStorage.setItem('attendance_roster', JSON.stringify(data.roster));
+          changed = true;
+        }
+
+        if (data.history && JSON.stringify(data.history) !== localStorage.getItem('attendance_history')) {
+          window.attendanceHistory = data.history;
+          localStorage.setItem('attendance_history', JSON.stringify(data.history));
+          changed = true;
+        }
+
+        if (changed && typeof window.updateUI === 'function') {
+          window.updateUI();
+        }
+      }
+    } catch (e) {
+      console.warn('Interval polling sync failed:', e);
+    }
+  }, 3000);
 }
 
 // Global upload helper called whenever client state is modified
-window.uploadStateToCloud = function(updatedRoster, updatedHistory) {
-  if (!currentUserId) return;
+window.uploadStateToCloud = async function(updatedRoster, updatedHistory) {
+  const token = localStorage.getItem('auth_token');
+  if (!token) return;
+
   const syncDot = document.getElementById('sync-dot');
   if (syncDot) {
     syncDot.style.backgroundColor = '#f59e0b'; // yellow for syncing
     syncDot.title = 'Syncing changes...';
   }
 
-  db.collection('users').doc(currentUserId).set({
-    roster: updatedRoster,
-    history: updatedHistory,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }, { merge: true }).then(() => {
-    if (syncDot) {
-      syncDot.style.backgroundColor = '#10b981'; // green for synced
-      syncDot.title = 'Synced to Cloud';
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ roster: updatedRoster, history: updatedHistory })
+    });
+
+    if (response.ok) {
+      if (syncDot) {
+        syncDot.style.backgroundColor = '#10b981'; // green for synced
+        syncDot.title = 'Synced to Cloud';
+      }
+    } else {
+      throw new Error('Failed to update cloud REST database.');
     }
-  }).catch((err) => {
-    console.error("Sync to Cloud failed:", err);
+  } catch (err) {
+    console.error('REST db save error:', err);
     if (syncDot) {
-      syncDot.style.backgroundColor = '#ef4444'; // red for error
+      syncDot.style.backgroundColor = '#ef4444'; // red for failed
       syncDot.title = `Sync failed: ${err.message}`;
     }
-  });
+  }
 };
