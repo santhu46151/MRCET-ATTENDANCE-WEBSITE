@@ -84,23 +84,25 @@
         }
         .actions-row {
             display: flex;
+            flex-direction: column;
             gap: 1rem;
             margin-top: 1.75rem;
         }
         .actions-row .btn {
-            flex: 1;
+            width: 100%;
             justify-content: center;
         }
         .text-links {
             display: flex;
             justify-content: space-between;
             margin-top: 1.5rem;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
         }
         .text-links a {
             color: var(--primary);
             text-decoration: none;
             font-weight: 600;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -125,12 +127,12 @@
         </div>
 
         <section id="auth-section">
-            <form id="auth-form">
+            <form id="login-form">
                 <div class="input-group">
-                    <label for="auth-username">Username / Email</label>
+                    <label for="auth-username">Email</label>
                     <div class="input-wrapper">
                         <i class="fas fa-envelope"></i>
-                        <input type="text" id="auth-username" required placeholder="e.g. administrator">
+                        <input type="email" id="auth-username" required placeholder="e.g. john@mrcet.edu">
                     </div>
                 </div>
                 <div class="input-group">
@@ -140,24 +142,16 @@
                         <input type="password" id="auth-password" required placeholder="••••••••">
                     </div>
                 </div>
-                <div class="input-group">
-                    <label>Role</label>
-                    <div style="display: flex; gap: 1rem;">
-                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
-                            <input type="radio" name="auth-role" value="student" checked> Student
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
-                            <input type="radio" name="auth-role" value="faculty"> Faculty
-                        </label>
-                    </div>
-                </div>
+                
                 <div class="actions-row">
-                    <button type="button" id="btn-signup" class="btn btn-outline">
-                        <i class="fas fa-user-plus"></i> Register
-                    </button>
                     <button type="submit" id="btn-login" class="btn btn-primary">
                         <i class="fas fa-sign-in-alt"></i> Login
                     </button>
+                </div>
+                
+                <div class="text-links">
+                    <a id="btn-forgot-password">Forgot Password?</a>
+                    <a href="register.html">Create an Account</a>
                 </div>
             </form>
         </section>
@@ -165,45 +159,47 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const authForm = document.getElementById('auth-form');
+            const loginForm = document.getElementById('login-form');
             const usernameInput = document.getElementById('auth-username');
             const passwordInput = document.getElementById('auth-password');
-            const btnSignup = document.getElementById('btn-signup');
-
-            // Sign Up Handler
-            btnSignup.addEventListener('click', async () => {
-                const username = usernameInput.value.trim().toLowerCase();
-                const password = passwordInput.value;
-                const roleInput = document.querySelector('input[name="auth-role"]:checked');
-                const role = roleInput ? roleInput.value : 'student';
-
-                if (!username || password.length < 6) {
-                    alert("Username/Email is required, and password must be at least 6 characters long.");
-                    return;
-                }
-
-                try {
-                    await authManager.register(username, password, role);
-                    alert("Account registered successfully! Logging you in...");
-                    window.location.href = 'index.html';
-                } catch (e) {
-                    alert(`Registration failed: ${e.message}`);
-                }
-            });
+            const btnForgotPassword = document.getElementById('btn-forgot-password');
 
             // Login Handler
-            authForm.addEventListener('submit', async (e) => {
+            loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const username = usernameInput.value.trim().toLowerCase();
                 const password = passwordInput.value;
 
                 try {
-                    await authManager.login(username, password);
-                    window.location.href = 'index.html';
+                    const userState = await authManager.login(username, password);
+                    if (userState.role === 'admin') {
+                        window.location.href = 'admin.html';
+                    } else if (userState.isApproved === false) {
+                        alert("Your account is pending Admin approval.");
+                    } else {
+                        window.location.href = 'index.html';
+                    }
                 } catch (e) {
                     alert(`Login failed: ${e.message}`);
                 }
             });
+            
+            // Forgot Password Handler
+            btnForgotPassword.addEventListener('click', async () => {
+                const username = usernameInput.value.trim().toLowerCase();
+                if (!username) {
+                    alert("Please enter your email address in the field above to reset your password.");
+                    return;
+                }
+                
+                try {
+                    await authManager.resetPassword(username);
+                    alert(`A password reset link has been sent to ${username}. Check your inbox!`);
+                } catch (e) {
+                    alert(`Failed to send reset email: ${e.message}`);
+                }
+            });
+
         });
     </script>
 </body>

@@ -216,6 +216,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    let currentClassName = 'IV CSE DS D';
+    
+    // Apply remote state from Firestore
+    window.applyRemoteState = (remoteRoster, remoteHistory, className) => {
+        if (remoteRoster) {
+            roster = remoteRoster;
+            localStorage.setItem('attendance_roster', JSON.stringify(roster));
+        }
+        if (remoteHistory) {
+            attendanceHistory = remoteHistory;
+            localStorage.setItem('attendance_history', JSON.stringify(attendanceHistory));
+        }
+        if (className) {
+            currentClassName = className;
+        }
+        
+        // Re-render UI
+        updateStats();
+        renderRoster();
+        renderAbsenteesList();
+        renderHistoryLogs();
+    };
+
     // Calculate Statistics
     function updateStats() {
         const activeStudents = getStudents();
@@ -386,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return suffix;
         }).join(', ');
 
-        const messageText = `IV CSE DS D\n${formattedDate} ${sessionVal} Absentees :\n\n${rollSuffixes || 'None'}\n\nAbsent - ${absentCount}\nPresent - ${presentCount}\nTotal - ${total}`;
+        const messageText = `${currentClassName}\n${formattedDate} ${sessionVal} Absentees :\n\n${rollSuffixes || 'None'}\n\nAbsent - ${absentCount}\nPresent - ${presentCount}\nTotal - ${total}`;
         absentMessageBox.value = messageText;
         copyMessageBtn.disabled = false;
     }
