@@ -108,7 +108,13 @@
     <div class="bg-glow"></div>
     <div class="bg-glow-2"></div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
     <!-- Configuration and Auth -->
+    <script src="firebase-init.js"></script>
     <script src="auth.js"></script>
 
     <div class="login-card glass-panel">
@@ -134,6 +140,17 @@
                         <input type="password" id="auth-password" required placeholder="••••••••">
                     </div>
                 </div>
+                <div class="input-group">
+                    <label>Role</label>
+                    <div style="display: flex; gap: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
+                            <input type="radio" name="auth-role" value="student" checked> Student
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text-primary); font-size: 0.9rem;">
+                            <input type="radio" name="auth-role" value="faculty"> Faculty
+                        </label>
+                    </div>
+                </div>
                 <div class="actions-row">
                     <button type="button" id="btn-signup" class="btn btn-outline">
                         <i class="fas fa-user-plus"></i> Register
@@ -157,6 +174,8 @@
             btnSignup.addEventListener('click', async () => {
                 const username = usernameInput.value.trim().toLowerCase();
                 const password = passwordInput.value;
+                const roleInput = document.querySelector('input[name="auth-role"]:checked');
+                const role = roleInput ? roleInput.value : 'student';
 
                 if (!username || password.length < 6) {
                     alert("Username/Email is required, and password must be at least 6 characters long.");
@@ -164,7 +183,7 @@
                 }
 
                 try {
-                    await authManager.register(username, password);
+                    await authManager.register(username, password, role);
                     alert("Account registered successfully! Logging you in...");
                     window.location.href = 'index.html';
                 } catch (e) {

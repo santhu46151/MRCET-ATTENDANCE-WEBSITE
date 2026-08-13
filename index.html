@@ -47,6 +47,9 @@
                 <button class="btn btn-primary" id="add-student-btn" title="Add new student to roster">
                     <i class="fas fa-plus"></i> Add Student
                 </button>
+                <button class="btn btn-outline" id="logout-btn" title="Logout" style="color: var(--danger); border-color: var(--danger-border); margin-left: 0.5rem;">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
             </div>
         </header>
 
@@ -263,8 +266,15 @@
         </footer>
     </div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
+    
     <!-- App Logic Scripts -->
     <script src="auth.js"></script>
+    
     <script src="sync.js"></script>
 
     <!-- Script -->
