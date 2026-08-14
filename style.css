@@ -715,6 +715,7 @@ footer a {
 @media (max-width: 640px) {
     .container {
         padding: 1rem;
+        padding-bottom: 80px; /* Make space for fixed button */
     }
     header {
         flex-direction: column;
@@ -723,9 +724,23 @@ footer a {
     }
     .header-actions {
         width: 100%;
-        justify-content: space-between;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.8rem;
     }
     .stats-grid {
         grid-template-columns: 1fr;
+    }
+    #logout-btn {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        margin-left: 0 !important;
+        background: var(--bg-primary);
+        box-shadow: var(--shadow-lg);
+        padding: 0.8rem 2rem;
+        border-radius: var(--radius-full);
     }
 }
