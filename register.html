@@ -128,6 +128,13 @@
         <section id="auth-section">
             <form id="register-form">
                 <div class="input-group">
+                    <label for="reg-name">Full Name</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="reg-name" required placeholder="e.g. John Doe">
+                    </div>
+                </div>
+                <div class="input-group">
                     <label for="reg-username">Email</label>
                     <div class="input-wrapper">
                         <i class="fas fa-envelope"></i>
@@ -193,14 +200,15 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const registerForm = document.getElementById('register-form');
+            const nameInput = document.getElementById('reg-name');
             const usernameInput = document.getElementById('reg-username');
             const passwordInput = document.getElementById('reg-password');
             const yearInput = document.getElementById('reg-year');
             const sectionInput = document.getElementById('reg-section');
 
-            // Sign Up Handler
             registerForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const name = nameInput.value.trim();
                 const username = usernameInput.value.trim().toLowerCase();
                 const password = passwordInput.value;
                 const roleInput = document.querySelector('input[name="reg-role"]:checked');
@@ -208,8 +216,8 @@
                 const year = yearInput.value.trim();
                 const section = sectionInput.value.trim();
 
-                if (!username || password.length < 6) {
-                    alert("Email is required, and password must be at least 6 characters long.");
+                if (!name || !username || password.length < 6) {
+                    alert("Name and Email are required, and password must be at least 6 characters long.");
                     return;
                 }
                 
@@ -219,7 +227,7 @@
                 }
 
                 try {
-                    await authManager.register(username, password, role, year, section);
+                    await authManager.register(name, username, password, role, year, section);
                     if (username === 'admin@mrcet.edu') {
                         alert("Admin account registered successfully! Logging you in...");
                         window.location.href = 'admin.html';

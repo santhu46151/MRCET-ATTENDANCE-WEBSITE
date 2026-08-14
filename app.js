@@ -73,8 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // State Variables (Declared globally so sync.js can synchronize Firestore data in real-time)
     roster = JSON.parse(localStorage.getItem('attendance_roster'));
+    const isStudent = authManager && authManager.user && authManager.user.role === 'student';
     if (!roster || roster.length === 0 || !roster[0] || typeof roster[0].rollNo === 'number' || !roster[0].hasOwnProperty('phone')) {
-        roster = defaultStudents;
+        roster = isStudent ? [] : defaultStudents;
         localStorage.setItem('attendance_roster', JSON.stringify(roster));
     }
 
@@ -217,9 +218,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let currentClassName = 'IV CSE DS D';
+    window.isRosterEmptyError = false;
+    window.emptyRosterMessage = '';
     
     // Apply remote state from Firestore
     window.applyRemoteState = (remoteRoster, remoteHistory, className) => {
+        window.isRosterEmptyError = false;
+        window.emptyRosterMessage = '';
         if (remoteRoster) {
             roster = remoteRoster;
             localStorage.setItem('attendance_roster', JSON.stringify(roster));
@@ -233,6 +238,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Re-render UI
+        updateStats();
+        renderRoster();
+        renderAbsenteesList();
+        renderHistoryLogs();
+    };
+
+    window.setEmptyRosterState = function(message) {
+        window.isRosterEmptyError = true;
+        window.emptyRosterMessage = message;
+        roster = [];
+        attendanceHistory = {};
         updateStats();
         renderRoster();
         renderAbsenteesList();
@@ -278,6 +294,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderRoster() {
         gridContainer.innerHTML = '';
         
+        if (window.isRosterEmptyError) {
+            gridContainer.style.display = 'grid';
+            searchFilterRow.style.display = 'none';
+            holidayBanner.style.display = 'none';
+            gridContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 3rem 1rem; color: var(--danger); font-weight: 600; font-size: 1.1rem; background: var(--card-bg); border: 1px solid var(--danger-border); border-radius: var(--radius-md);"><i class="fas fa-exclamation-triangle" style="font-size: 2.5rem; display: block; margin-bottom: 1rem;"></i>${window.emptyRosterMessage}</div>`;
+            return;
+        }
+
         if (isHolidayActive()) {
             gridContainer.style.display = 'none';
             searchFilterRow.style.display = 'none';
@@ -828,6 +852,16 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAbsenteesList();
         renderHistoryLogs();
     };
+
+    // Update Dashboard Header for Students
+    if (authManager && authManager.user && authManager.user.role === 'student') {
+        const headerH1 = document.querySelector('.header-info h1');
+        const syncDotNode = document.getElementById('sync-dot');
+        if (headerH1) {
+            headerH1.innerHTML = `Welcome ${authManager.user.name || ''} <br> <span style="font-size: 1.1rem; color: var(--text-secondary); margin-top: 0.25rem; display: inline-block;">${authManager.user.year} Year - Section ${authManager.user.section}</span>`;
+            if (syncDotNode) headerH1.appendChild(syncDotNode);
+        }
+    }
 
     // Initialize App Render
     window.updateUI();

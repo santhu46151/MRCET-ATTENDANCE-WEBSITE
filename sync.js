@@ -24,6 +24,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const isRestricted = authUser.role === 'student';
             const userClassId = (authUser.year && authUser.section) ? `${authUser.year}_${authUser.section}` : null;
             
+            if (isRestricted && !userClassId) {
+                if (typeof window.setEmptyRosterState === 'function') {
+                    window.setEmptyRosterState("Your class information is not available. Please contact the administrator.");
+                }
+                if (syncDot) syncDot.style.backgroundColor = '#ef4444';
+                return;
+            }
+            
             classesSnapshot.forEach(doc => {
                 const data = doc.data();
                 const classId = doc.id;
@@ -85,6 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (syncDot) {
                         syncDot.style.backgroundColor = '#ef4444';
                         syncDot.title = 'Class data not found in cloud';
+                    }
+                    if (authUser.role === 'student' && typeof window.setEmptyRosterState === 'function') {
+                        window.setEmptyRosterState("Your class information is not available. Please contact the administrator.");
                     }
                 }
             }, (error) => {

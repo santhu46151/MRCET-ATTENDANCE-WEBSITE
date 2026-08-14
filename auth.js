@@ -18,7 +18,7 @@ class AuthManager {
         });
     }
 
-    async register(email, password, role, year, section) {
+    async register(name, email, password, role, year, section) {
         try {
             const userCredential = await auth.createUserWithEmailAndPassword(email, password);
             const user = userCredential.user;
@@ -29,6 +29,7 @@ class AuthManager {
 
             // Save the user metadata to Firestore
             await db.collection('users').doc(user.uid).set({
+                name: name,
                 email: email,
                 role: finalRole,
                 year: (isAdmin || role === 'faculty') ? null : year,
@@ -37,7 +38,7 @@ class AuthManager {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
-            this.user = { email: user.email, role: finalRole, uid: user.uid, year: year, section: section, isApproved: isApproved };
+            this.user = { name: name, email: user.email, role: finalRole, uid: user.uid, year: year, section: section, isApproved: isApproved };
             localStorage.setItem('authUser', JSON.stringify(this.user));
             return this.user;
         } catch (error) {
@@ -57,6 +58,7 @@ class AuthManager {
             const isApproved = data.hasOwnProperty('isApproved') ? data.isApproved : (role === 'admin');
 
             this.user = { 
+                name: data.name || 'Unknown',
                 email: user.email, 
                 role: role, 
                 uid: user.uid,
