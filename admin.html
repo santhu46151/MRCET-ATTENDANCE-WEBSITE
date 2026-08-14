@@ -81,9 +81,6 @@
                 <button class="btn btn-primary" onclick="window.location.href='index.html'">
                     <i class="fas fa-chart-line"></i> View Dashboard
                 </button>
-                <button class="btn btn-outline" id="logout-btn" style="color: var(--danger); border-color: var(--danger-border); margin-left: 0.5rem;">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </button>
             </div>
         </header>
 
@@ -137,6 +134,12 @@
             </div>
             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">Note: Uploading a CSV for an existing Year/Section will overwrite its current roster.</p>
         </section>
+
+        <div style="display: flex; justify-content: center; margin-top: 1rem; margin-bottom: 2rem;">
+            <button class="btn btn-outline" id="logout-btn" style="color: var(--danger); border-color: var(--danger-border); padding: 0.8rem 2.5rem; font-size: 1rem; border-radius: var(--radius-full);">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
 
     </div>
 

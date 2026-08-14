@@ -123,6 +123,7 @@ body {
     width: 100%;
     margin: 0 auto;
     padding: 2rem 1.5rem;
+    padding-bottom: 80px; /* Space for fixed logout button */
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -731,16 +732,5 @@ footer a {
     .stats-grid {
         grid-template-columns: 1fr;
     }
-    #logout-btn {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 1000;
-        margin-left: 0 !important;
-        background: var(--bg-primary);
-        box-shadow: var(--shadow-lg);
-        padding: 0.8rem 2rem;
-        border-radius: var(--radius-full);
-    }
 }
+

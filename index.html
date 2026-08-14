@@ -51,9 +51,6 @@
                 <button class="btn btn-primary" id="add-student-btn" title="Add new student to roster">
                     <i class="fas fa-plus"></i> Add Student
                 </button>
-                <button class="btn btn-outline" id="logout-btn" title="Logout" style="color: var(--danger); border-color: var(--danger-border); margin-left: 0.5rem;">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </button>
             </div>
         </header>
 
@@ -202,6 +199,12 @@
                 No saved attendance history logs found. Mark attendance to save!
             </div>
         </section>
+
+        <div style="display: flex; justify-content: center; margin-top: 1rem; margin-bottom: 2rem;">
+            <button class="btn btn-outline" id="logout-btn" title="Logout" style="color: var(--danger); border-color: var(--danger-border); padding: 0.8rem 2.5rem; font-size: 1rem; border-radius: var(--radius-full);">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
 
         <!-- Add Student Modal Dialog -->
         <div class="modal" id="add-student-modal" aria-hidden="true" role="dialog">
