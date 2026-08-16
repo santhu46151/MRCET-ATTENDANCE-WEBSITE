@@ -16,4 +16,15 @@ if (!firebase.apps.length) {
 
 // Get instances
 window.db = firebase.firestore();
+
+// Enable offline persistence
+window.db.enablePersistence()
+  .catch((err) => {
+      if (err.code == 'failed-precondition') {
+          console.warn("Multiple tabs open, offline persistence can only be enabled in one tab at a time.");
+      } else if (err.code == 'unimplemented') {
+          console.warn("The current browser does not support all of the features required to enable persistence");
+      }
+  });
+
 window.auth = firebase.auth();

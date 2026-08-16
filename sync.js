@@ -40,7 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const option = document.createElement('option');
                 option.value = classId;
-                option.textContent = `${data.year} ${data.section}`;
+                const branchStr = data.branch || 'CSE';
+                const deptStr = data.department || 'DS';
+                option.textContent = `${data.year}/${branchStr}/${deptStr}/${data.section}`;
                 classDropdown.appendChild(option);
             });
             
@@ -83,7 +85,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = doc.data();
                     if (typeof window.applyRemoteState === 'function') {
                         // Pass the className to app.js
-                        window.applyRemoteState(data.roster, data.history || {}, `${data.year} ${data.section}`);
+                        const branchStr = data.branch || 'CSE';
+                        const deptStr = data.department || 'DS';
+                        window.applyRemoteState(data.roster, data.history || {}, `${data.year}/${branchStr}/${deptStr}/${data.section}`);
                     }
                     if (syncDot) {
                         syncDot.style.backgroundColor = '#10b981';

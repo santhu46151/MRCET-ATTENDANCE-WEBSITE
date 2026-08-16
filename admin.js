@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnUploadClass = document.getElementById('btn-upload-class');
     const classYearInput = document.getElementById('class-year');
     const classSectionInput = document.getElementById('class-section');
+    const classDepartmentInput = document.getElementById('class-department');
     const classCsvInput = document.getElementById('class-csv');
 
     // Logout
@@ -68,6 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btnUploadClass.addEventListener('click', async () => {
         const year = classYearInput.value.trim();
         const section = classSectionInput.value.trim();
+        const department = classDepartmentInput ? classDepartmentInput.value.trim() : "DS";
+        const branch = "CSE"; // Hardcoded for this application context
         const file = classCsvInput.files[0];
 
         if (!year || !section || !file) {
@@ -95,6 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         phone: parts[2].trim(),
                         fatherName: parts[3].trim(),
                         fatherPhone: parts[4].trim(),
+                        department: department,
+                        branch: branch,
                         status: "present"
                     });
                 }
@@ -110,6 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 await db.collection('classes').doc(classId).set({
                     year: year,
                     section: section,
+                    department: department,
+                    branch: branch,
                     roster: roster,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });

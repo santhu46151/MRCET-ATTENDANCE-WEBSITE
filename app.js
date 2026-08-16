@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    let currentClassName = 'IV CSE DS D';
+    let currentClassName = 'IV/CSE/DS/D';
     window.isRosterEmptyError = false;
     window.emptyRosterMessage = '';
     
