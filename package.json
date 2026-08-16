@@ -6,7 +6,9 @@
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "build:web": "npx copyfiles -f \"*.html\" \"*.css\" \"*.js\" \"logo.png\" www",
+    "cap:sync": "npm run build:web && npx cap sync"
   },
   "build": {
     "appId": "com.mrcet.attendance",
@@ -32,6 +34,8 @@
   },
   "homepage": "https://github.com/santhu46151/MRCET-ATTENDANCE-WEBSITE#readme",
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -42,6 +46,9 @@
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.0",
+    "copyfiles": "^2.4.1",
     "electron": "^43.4.0",
     "electron-builder": "^26.15.3"
   }

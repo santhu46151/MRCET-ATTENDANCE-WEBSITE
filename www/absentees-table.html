@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Absentee details table formatted like an Excel sheet.">
+    <title>Absentee Details Table</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- App Configuration and Auth -->
+    <script src="auth.js"></script>
+    <style>
+        /* Excel Table Specific Styles */
+        .excel-container {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            background: var(--card-bg);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .excel-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        .excel-table th {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+            padding: 12px 16px;
+            border-bottom: 2px solid var(--card-border);
+            border-right: 1px solid var(--card-border);
+            user-select: none;
+        }
+
+        .excel-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--card-border);
+            border-right: 1px solid var(--card-border);
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .excel-table tbody tr:hover {
+            background-color: rgba(79, 70, 229, 0.05);
+        }
+
+        .excel-table tr td:last-child, 
+        .excel-table tr th:last-child {
+            border-right: none;
+        }
+
+        .excel-table td a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .excel-table td a:hover {
+            text-decoration: underline;
+        }
+
+        .back-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .back-nav:hover {
+            color: var(--primary);
+            transform: translateX(-3px);
+        }
+
+        .excel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .excel-title-group h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .excel-status-badge {
+            background: var(--danger-bg);
+            color: var(--danger);
+            border: 1px solid var(--danger-border);
+            padding: 0.3rem 0.8rem;
+            border-radius: var(--radius-full);
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .no-data-msg {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+        }
+
+        .no-data-msg i {
+            font-size: 3rem;
+            color: var(--success);
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <div class="container" style="max-width: 1200px;">
+        <!-- Navigation Back Link -->
+        <nav aria-label="Breadcrumb">
+            <a href="index.html" class="back-nav">
+                <i class="fas fa-arrow-left"></i> Back to Attendance Dashboard
+            </a>
+        </nav>
+
+        <!-- Excel Table Header -->
+        <header class="excel-header glass-panel" style="padding: 1.5rem;">
+            <div class="excel-title-group">
+                <h1>Absentee Details (Excel Form)</h1>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">
+                    <i class="far fa-calendar-alt"></i> Date: <span id="table-date-display">DD/MM/YYYY</span>
+                </p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <span class="excel-status-badge" id="absentee-summary-badge">0 Absentees</span>
+                <button class="btn btn-outline" id="print-table-btn" onclick="window.print()">
+                    <i class="fas fa-print"></i> Print
+                </button>
+            </div>
+        </header>
+
+        <!-- Spreadsheet Container -->
+        <main class="excel-container glass-panel">
+            <table class="excel-table" id="details-excel-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60px; text-align: center;">S.No</th>
+                        <th>Roll Number</th>
+                        <th>Student Name</th>
+                        <th>Phone Number</th>
+                        <th>Father's Name</th>
+                        <th>Father's Phone Number</th>
+                    </tr>
+                </thead>
+                <tbody id="excel-table-body">
+                    <!-- Dynamic Data Rows -->
+                </tbody>
+            </table>
+            
+            <div id="no-absentees-state" class="no-data-msg" style="display: none;">
+                <i class="fas fa-check-circle"></i>
+                <h2>100% Class Attendance!</h2>
+                <p style="margin-top: 0.5rem;">No students are absent today.</p>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Class Attendance System. Excel Form View.</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Theme setup
+            const isDarkMode = localStorage.getItem('theme') === 'dark';
+            if (isDarkMode) {
+                document.body.classList.add('dark-mode');
+            }
+
+            // Parse date from URL params or default to today
+            const urlParams = new URLSearchParams(window.location.search);
+            const dateObj = new Date();
+            const localYYYY = dateObj.getFullYear();
+            const localMM = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const localDD = String(dateObj.getDate()).padStart(2, '0');
+            const defaultDateKey = `${localYYYY}-${localMM}-${localDD}`;
+            const dateKey = urlParams.get('date') || defaultDateKey;
+
+            // Set Date Display
+            const [y, m, d] = dateKey.split('-');
+            const formattedDate = `${d}/${m}/${y}`;
+            document.getElementById('table-date-display').innerText = formattedDate;
+
+            // Load Data from LocalStorage (synced by auth/sync manager API)
+            let roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
+            let history = JSON.parse(localStorage.getItem('attendance_history')) || {};
+            renderTable();
+
+            // Set up local polling update listener to reflect edits dynamically
+            setInterval(() => {
+                roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
+                history = JSON.parse(localStorage.getItem('attendance_history')) || {};
+                renderTable();
+            }, 3000);
+
+            function renderTable() {
+                const dateRecord = history[dateKey] || {};
+                const isHoliday = dateRecord.isHoliday;
+                const dateRecordAttendance = dateRecord.attendance || {};
+                const absentees = roster.filter(s => !isHoliday && dateRecordAttendance[s.rollNo] === 'absent');
+                
+                // Sort by Roll No
+                absentees.sort((a, b) => a.rollNo.localeCompare(b.rollNo));
+
+                const badge = document.getElementById('absentee-summary-badge');
+                const table = document.getElementById('details-excel-table');
+                const tbody = document.getElementById('excel-table-body');
+                const noData = document.getElementById('no-absentees-state');
+
+                tbody.innerHTML = ''; // Clear previous contents
+
+                if (isHoliday) {
+                    badge.innerText = "Holiday Mode";
+                    badge.style.background = "var(--primary-light)";
+                    badge.style.color = "var(--primary)";
+                    badge.style.borderColor = "var(--primary)";
+                    table.style.display = 'none';
+                    noData.innerHTML = `
+                        <i class="fas fa-umbrella-beach" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
+                        <h2>Holiday Mode Active</h2>
+                        <p style="margin-top: 0.5rem; font-weight: 600;">Reason: ${dateRecord.holidayReason || 'School Holiday'}</p>
+                    `;
+                    noData.style.display = 'block';
+                    return;
+                }
+
+                badge.innerText = `${absentees.length} Absentee${absentees.length !== 1 ? 's' : ''}`;
+
+                if (absentees.length === 0) {
+                    table.style.display = 'none';
+                    noData.style.display = 'block';
+                    return;
+                }
+
+                table.style.display = 'table';
+                noData.style.display = 'none';
+
+                // Render rows
+                absentees.forEach((student, index) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="text-align: center; background-color: var(--bg-secondary); font-weight: 700;">${index + 1}</td>
+                        <td style="font-weight: 700; color: var(--danger);">${student.rollNo}</td>
+                        <td style="font-weight: 600; color: var(--text-primary);">${student.name}</td>
+                        <td><a href="tel:${student.phone}">${student.phone}</a></td>
+                        <td>${student.fatherName}</td>
+                        <td><a href="tel:${student.fatherPhone}">${student.fatherPhone}</a></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        });
+    </script>
+</body>
+</html>

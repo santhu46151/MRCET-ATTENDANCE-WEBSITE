@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Attendance Report - Section IV-D</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS library to export genuine Excel files -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- App Configuration and Auth -->
+    <script src="auth.js"></script>
+    <style>
+        /* Specific Styles for Excel Monthly Report */
+        .report-wrapper {
+            background-color: white;
+            color: #000;
+            padding: 2.5rem;
+            border-radius: var(--radius-md);
+            border: 1px solid #ccc;
+            box-shadow: var(--shadow-lg);
+            width: 100%;
+            max-width: 1250px;
+            margin: 0 auto;
+            font-family: Arial, sans-serif;
+        }
+
+        .dark-mode .report-wrapper {
+            background-color: #ffffff; /* Keep report white like paper even in dark mode for printable layout */
+            color: #000000;
+            border-color: #bbbbbb;
+        }
+
+        /* College Header Styling */
+        .college-header {
+            display: grid;
+            grid-template-columns: 100px 1fr 100px;
+            align-items: center;
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .college-logo-svg {
+            width: 90px;
+            height: 90px;
+        }
+
+        .college-info h2 {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: #4b0082; /* Indigo/Purple color */
+            margin-bottom: 0.15rem;
+        }
+
+        .college-info h3 {
+            font-size: 0.95rem;
+            color: red;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .college-info p {
+            font-size: 0.8rem;
+            color: #333;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+
+        .report-subtitle {
+            text-align: center;
+            font-weight: 800;
+            border-bottom: 1.5px solid #000;
+            padding: 0.35rem 0;
+            font-size: 0.95rem;
+        }
+
+        .section-badge {
+            text-align: center;
+            font-weight: 800;
+            font-size: 0.9rem;
+            background-color: #e2e8f0;
+            padding: 0.3rem;
+            border: 1px solid #000;
+            margin: 0.5rem 0 1rem 0;
+        }
+
+        /* Excel grid table formatting */
+        .excel-grid-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: Arial, sans-serif;
+            font-size: 0.78rem;
+        }
+
+        .excel-grid-table th, 
+        .excel-grid-table td {
+            border: 1px solid #000;
+            padding: 4px 6px;
+            vertical-align: middle;
+        }
+
+        .excel-grid-table th {
+            background-color: #f2f2f2;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .excel-grid-table td {
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .excel-grid-table td.student-name-cell {
+            text-align: left;
+            padding-left: 8px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .excel-grid-table td.absent-cell {
+            color: red;
+            font-weight: 700;
+            background-color: #fee2e2;
+        }
+
+        .excel-grid-table tr.totals-row td {
+            font-weight: 700;
+            background-color: #f2f2f2;
+        }
+
+        .excel-grid-table tr:hover {
+            background-color: rgba(79, 70, 229, 0.05);
+        }
+
+        /* Controls Panel */
+        .controls-panel {
+            max-width: 1250px;
+            margin: 0 auto 1.5rem auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 0.5cm;
+            }
+            body {
+                background: white !important;
+                color: black !important;
+                padding: 0;
+                margin: 0;
+            }
+            .controls-panel, nav, footer, .bg-glow, .bg-glow-2 {
+                display: none !important;
+            }
+            .container {
+                max-width: 100% !important;
+                width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .report-wrapper {
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                page-break-inside: avoid;
+            }
+            .excel-grid-table {
+                font-size: 0.55rem; /* Downscale font size slightly so the large 31-day table fits landscape page width */
+                width: 100% !important;
+            }
+            .excel-grid-table th, .excel-grid-table td {
+                padding: 2px 3px !important;
+            }
+            /* Hide vertical scrollbar containers on print */
+            div[style*="overflow-x: auto"] {
+                overflow: visible !important;
+                overflow-x: visible !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <div class="container" style="max-width: 1350px; padding-top: 1rem;">
+        <!-- Breadcrumb Nav -->
+        <nav aria-label="Breadcrumb">
+            <a href="index.html" class="back-nav" style="text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; color: var(--text-secondary);">
+                <i class="fas fa-arrow-left"></i> Back to Attendance Dashboard
+            </a>
+        </nav>
+
+        <!-- Controls panel -->
+        <section class="controls-panel glass-panel">
+            <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <label for="month-picker" style="font-weight: 700; font-size: 0.9rem; color: var(--text-secondary);">Select Month:</label>
+                    <input type="month" id="month-picker" style="border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); outline: none; cursor: pointer;">
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.75rem;">
+                <button class="btn btn-outline" id="export-excel-btn" style="color: #107c41; border-color: #107c41;">
+                    <i class="fas fa-file-excel"></i> Export to Excel (.xlsx)
+                </button>
+                <button class="btn btn-primary" onclick="window.print()">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+            </div>
+        </section>
+
+        <!-- Monthly Report Container -->
+        <div id="reports-container"></div>
+
+        <footer style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.85rem;">
+            <p>&copy; 2026 Class Monthly Attendance System. Printable Sheet Mode.</p>
+        </footer>
+    </div>
+
+    <!-- Script to calculate and draw grid -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Dark theme detection (applies to page background but keeps printable report page white)
+            const isDarkMode = localStorage.getItem('theme') === 'dark';
+            if (isDarkMode) {
+                document.body.classList.add('dark-mode');
+            }
+
+            const monthPicker = document.getElementById('month-picker');
+
+            // Parse selected date/month from URL params or default to current month
+            const urlParams = new URLSearchParams(window.location.search);
+            const dateQuery = urlParams.get('date');
+            let initialDate = dateQuery ? new Date(dateQuery) : new Date();
+            if (isNaN(initialDate.getTime())) {
+                initialDate = new Date();
+            }
+
+            const currentYYYY = initialDate.getFullYear();
+            const currentMM = String(initialDate.getMonth() + 1).padStart(2, '0');
+            monthPicker.value = `${currentYYYY}-${currentMM}`;
+
+            // Load Data from LocalStorage (synced by auth/sync manager API)
+            let roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
+            let history = JSON.parse(localStorage.getItem('attendance_history')) || {};
+
+            // Set up local polling update listener to reflect edits dynamically
+            setInterval(() => {
+                roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
+                history = JSON.parse(localStorage.getItem('attendance_history')) || {};
+                buildMonthlyGrid();
+            }, 3000);
+
+            // Helper to format Date to YYYY-MM-DD
+            function getFormattedKey(year, month, day) {
+                const m = String(month).padStart(2, '0');
+                const d = String(day).padStart(2, '0');
+                return `${year}-${m}-${d}`;
+            }
+
+            // Get month name
+            function getMonthName(monthIndex) {
+                const months = [
+                    "January", "February", "March", "April", "May", "June", 
+                    "July", "August", "September", "October", "November", "December"
+                ];
+                return months[monthIndex];
+            }
+
+            function buildMonthlyGrid() {
+                const reportsContainer = document.getElementById('reports-container');
+                reportsContainer.innerHTML = '';
+
+                const pickerVal = monthPicker.value; // YYYY-MM
+                if (!pickerVal) return;
+                const [selectedYear, selectedMonth] = pickerVal.split('-').map(Number);
+                const monthIndex = selectedMonth - 1;
+
+                // Determine days in selected month
+                const totalDays = new Date(selectedYear, selectedMonth, 0).getDate();
+
+                // Generate dates for the month
+                const monthDates = [];
+                for (let d = 1; d <= totalDays; d++) {
+                    const key = getFormattedKey(selectedYear, selectedMonth, d);
+                    const label = String(d).padStart(2, '0');
+                    const dateObj = new Date(selectedYear, monthIndex, d);
+                    const isSunday = dateObj.getDay() === 0;
+                    monthDates.push({ key, label, day: d, isSunday });
+                }
+
+                // Calculate total active school days in this month (excluding logged holidays and Sundays)
+                let schoolDaysCount = 0;
+                monthDates.forEach(col => {
+                    const record = history[col.key];
+                    const isHoliday = col.isSunday || (record && record.isHoliday);
+                    if (!isHoliday) {
+                        schoolDaysCount++;
+                    }
+                });
+
+                // Build wrapper HTML
+                const wrapper = document.createElement('main');
+                wrapper.className = 'report-wrapper';
+
+                // Headers HTML
+                let dateHeadersHTML = '';
+                monthDates.forEach(col => {
+                    dateHeadersHTML += `<th style="width: 25px; min-width: 25px; text-align: center; font-size: 0.7rem;">${col.label}</th>`;
+                });
+
+                // Student Rows
+                const presenteesPerDay = Array(monthDates.length).fill(0);
+                let tbodyHTML = '';
+
+                // Track the holiday columns to skip rendering cells in row loops and merge them vertically
+                // Since tbody cells are normally drawn per student, to span vertically we can conditionally draw 
+                // a single <td rowspan="roster.length"> inside the FIRST row, and omit the cell for subsequent rows.
+                roster.sort((a,b) => a.rollNo.localeCompare(b.rollNo)).forEach((student, index) => {
+                    let rowHTML = `
+                        <tr>
+                            <td style="background-color: #f2f2f2; font-weight: 700; text-align: center;">${index + 1}</td>
+                            <td style="font-weight: 700; text-align: center; white-space: nowrap;">${student.rollNo}</td>
+                            <td class="student-name-cell">${student.name}</td>
+                    `;
+
+                    let presentCount = 0;
+                    monthDates.forEach((col, colIdx) => {
+                        const record = history[col.key];
+                        const isSunday = col.isSunday;
+                        const isLoggedHoliday = record && record.isHoliday;
+                        
+                        if (isSunday) {
+                            if (index === 0) {
+                                // Vertical text layout for SUNDAY spanning all rows
+                                rowHTML += `<td rowspan="${roster.length}" style="background-color: #fef08a; color: #4f46e5; font-weight: 700; text-align: center; font-size: 0.65rem; line-height: 1.2; padding: 2px 0; word-break: break-all; width: 25px; min-width: 25px; vertical-align: middle;">S<br>U<br>N<br>D<br>A<br>Y</td>`;
+                            }
+                        } else if (isLoggedHoliday) {
+                            if (index === 0) {
+                                // Vertical text layout for custom holiday reason spanning all rows
+                                const reason = record.holidayReason || "Holiday";
+                                const stackedReason = reason.substring(0, 10).toUpperCase().split('').join('<br>');
+                                rowHTML += `<td rowspan="${roster.length}" style="background-color: #fef08a; color: #b45309; font-weight: 700; text-align: center; font-size: 0.65rem; line-height: 1.2; padding: 2px 0; word-break: break-all; width: 25px; min-width: 25px; vertical-align: middle;" title="${reason}">${stackedReason}</td>`;
+                            }
+                        } else {
+                            const attendance = (record && record.attendance) || {};
+                            const status = attendance[student.rollNo] || "present";
+                            if (status === "present") {
+                                presentCount++;
+                                presenteesPerDay[colIdx]++;
+                                rowHTML += `<td style="text-align: center;">${presentCount}</td>`;
+                            } else {
+                                rowHTML += `<td class="absent-cell" style="text-align: center;">AB</td>`;
+                            }
+                        }
+                    });
+
+                    const percentage = schoolDaysCount > 0 
+                        ? ((presentCount / schoolDaysCount) * 100).toFixed(2)
+                        : "0.00";
+
+                    rowHTML += `
+                        <td style="font-weight: 700; background-color: #f2f2f2; text-align: center;">${presentCount}</td>
+                        <td style="font-weight: 700; background-color: #f2f2f2; text-align: center;">${percentage}%</td>
+                        </tr>
+                    `;
+                    tbodyHTML += rowHTML;
+                });
+
+                // Totals row
+                let totalsHTML = `
+                    <tr class="totals-row">
+                        <td colspan="3" style="text-align: right; padding-right: 12px; font-weight: 800;">TOTAL PRESENTEE PER DAY</td>
+                `;
+                monthDates.forEach((col, colIdx) => {
+                    const record = history[col.key];
+                    const isSunday = col.isSunday;
+                    const isLoggedHoliday = record && record.isHoliday;
+                    if (isSunday) {
+                        totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: #4f46e5; text-align: center; font-size: 0.6rem;">SUN</td>`;
+                    } else if (isLoggedHoliday) {
+                        const shortReason = (record.holidayReason || "HOL").substring(0, 3).toUpperCase();
+                        totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: #b45309; text-align: center; font-size: 0.6rem;" title="${record.holidayReason || 'Holiday'}">${shortReason}</td>`;
+                    } else {
+                        totalsHTML += `<td style="text-align: center;">${presenteesPerDay[colIdx]}</td>`;
+                    }
+                });
+                totalsHTML += `<td colspan="2" style="background-color:#e2e8f0;"></td></tr>`;
+
+                // Assemble HTML
+                wrapper.innerHTML = `
+                    <!-- College Header Info (Image) -->
+                    <div style="width: 100%; border-bottom: 2px solid #000; padding-bottom: 0.5rem; margin-bottom: 1rem; text-align: center;">
+                        <img src="logo.png" alt="College Logo" style="height: 70px; margin-bottom: 0.5rem; display: block; margin-left: auto; margin-right: auto; content: url(logo.png); filter: none;" onerror="this.style.display='none'">
+                        <div class="college-info">
+                            <h2>MALLA REDDY COLLEGE OF ENGINEERING & TECHNOLOGY</h2>
+                            <h3>(Autonomous Institution - UGC, Govt. of India)</h3>
+                            <p>Sponsored by Malla Reddy Educational Society. Affiliated to JNTUH, Hyderabad. Approved by AICTE, New Delhi.</p>
+                            <p style="margin-top: 0.15rem;">Maisammaguda, Dhulapally, Secunderabad - 500100, Telangana, India.</p>
+                        </div>
+                    </div>
+
+                    <div class="report-subtitle">
+                        DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING (DATA SCIENCE)
+                    </div>
+                    <div class="section-badge">
+                        MONTHLY ATTENDANCE REGISTER - ${getMonthName(monthIndex).toUpperCase()} ${selectedYear} (SECTION: IV-D)
+                    </div>
+
+                    <div style="width: 100%; overflow-x: auto; margin-top: 1rem;">
+                        <table class="excel-grid-table">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2" style="width: 35px;">S.No</th>
+                                    <th rowspan="2" style="width: 100px;">Roll Number</th>
+                                    <th rowspan="2" style="text-align: left; padding-left: 8px;">Student Name</th>
+                                    <th colspan="${monthDates.length}" style="text-align: center;">Days of Month</th>
+                                    <th rowspan="2" style="width: 60px;">Total Attended</th>
+                                    <th rowspan="2" style="width: 70px;">% of Attendance</th>
+                                </tr>
+                                <tr>
+                                    ${dateHeadersHTML}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tbodyHTML}
+                                ${totalsHTML}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="margin-top: 3rem; display: flex; justify-content: space-between; font-weight: 800; font-size: 0.85rem; padding: 0 1.5rem;">
+                        <span>CLASS INCHARGE</span>
+                        <span>ATTENDANCE COORDINATOR</span>
+                        <span>HEAD OF DEPARTMENT</span>
+                    </div>
+                `;
+
+                reportsContainer.appendChild(wrapper);
+            }
+
+            monthPicker.addEventListener('change', buildMonthlyGrid);
+
+            // Export to Excel logic
+            document.getElementById('export-excel-btn').addEventListener('click', () => {
+                const table = document.querySelector(".excel-grid-table");
+                if (!table) return;
+
+                const pickerVal = monthPicker.value;
+                const [selectedYear, selectedMonth] = pickerVal.split('-').map(Number);
+                const monthName = getMonthName(selectedMonth - 1);
+
+                // Convert HTML table to Worksheet
+                const wb = XLSX.utils.table_to_book(table, { raw: true });
+                XLSX.writeFile(wb, `Monthly_Attendance_Report_${monthName}_${selectedYear}.xlsx`);
+            });
+        });
+    </script>
+</body>
+</html>

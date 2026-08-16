@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal - Attendance System</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .admin-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .admin-section h2 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary);
+        }
+        .user-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .user-table th, .user-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--card-border);
+            color: var(--text-secondary);
+        }
+        .user-table th {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .user-table tr:last-child td {
+            border-bottom: none;
+        }
+        .btn-sm {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.85rem;
+        }
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            margin-bottom: 1rem;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .form-group label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .form-group input {
+            padding: 0.5rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--card-border);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <div class="container">
+        <header class="glass-panel" id="main-header" style="margin-bottom: 2rem;">
+            <div class="header-info">
+                <h1><i class="fas fa-shield-alt" style="color: var(--primary);"></i> Admin Portal</h1>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" onclick="window.location.href='index.html'">
+                    <i class="fas fa-chart-line"></i> View Dashboard
+                </button>
+            </div>
+        </header>
+
+        <section class="admin-section glass-panel">
+            <h2><i class="fas fa-user-check"></i> Pending Approvals</h2>
+            <table class="user-table" id="pending-users-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Year</th>
+                        <th>Section</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="pending-users-body">
+                    <tr><td colspan="5" style="text-align: center;">Loading pending users...</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="admin-section glass-panel">
+            <h2><i class="fas fa-chalkboard-teacher"></i> Add New Class & Upload Roster (CSV)</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Year</label>
+                    <select id="class-year" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer; appearance: none;" required>
+                        <option value="" disabled selected>Select Year</option>
+                        <option value="II">2nd Year (II)</option>
+                        <option value="III">3rd Year (III)</option>
+                        <option value="IV">4th Year (IV)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Section</label>
+                    <select id="class-section" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer; appearance: none;" required>
+                        <option value="" disabled selected>Select Section</option>
+                        <option value="A">Section A</option>
+                        <option value="B">Section B</option>
+                        <option value="C">Section C</option>
+                        <option value="D">Section D</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Department</label>
+                    <input type="text" id="class-department" value="DS" readonly style="cursor: not-allowed; opacity: 0.8; font-weight: bold; width: 100%;">
+                </div>
+                <div class="form-group">
+                    <label>CSV File (RollNo, StudentName, StudentPhone, ParentName, ParentPhone)</label>
+                    <input type="file" id="class-csv" accept=".csv" required>
+                </div>
+                <button class="btn btn-primary" id="btn-upload-class" style="height: 35px;">
+                    <i class="fas fa-upload"></i> Create Class
+                </button>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">Note: Uploading a CSV for an existing Year/Section will overwrite its current roster.</p>
+        </section>
+
+        <div style="display: flex; justify-content: center; margin-top: 1rem; margin-bottom: 2rem;">
+            <button class="btn btn-outline" id="logout-btn" style="color: var(--danger); border-color: var(--danger-border); padding: 0.8rem 2.5rem; font-size: 1rem; border-radius: var(--radius-full);">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
+    
+    <!-- App Logic Scripts -->
+    <script src="auth.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
