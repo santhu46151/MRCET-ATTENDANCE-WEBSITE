@@ -1,4 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Handle Android Back Gesture from Admin Portal
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('from') === 'admin') {
+        // Remove the query param so refresh doesn't trigger it again
+        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+        // Push a new state to catch the back button
+        window.history.pushState({ page: 'dashboard' }, '', cleanUrl);
+        
+        window.addEventListener('popstate', (e) => {
+            window.location.replace('admin.html');
+        });
+    }
+
     // Initial Student Roster Data
     const defaultStudents = [
         { rollNo: "23N31A67K9", name: "SHAIK HASEENA", phone: "7780108900", fatherName: "SHAIK NAGOOR", fatherPhone: "6309668456", status: "present" },
