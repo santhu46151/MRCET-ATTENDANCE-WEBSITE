@@ -133,6 +133,37 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     });
 
+    const btnDeleteClass = document.getElementById('btn-delete-class');
+    const deleteClassYearInput = document.getElementById('delete-class-year');
+    const deleteClassSectionInput = document.getElementById('delete-class-section');
+
+    // Delete Class
+    if (btnDeleteClass) {
+        btnDeleteClass.addEventListener('click', async () => {
+            const year = deleteClassYearInput.value;
+            const section = deleteClassSectionInput.value;
+
+            if (!year || !section) {
+                alert("Please select Year and Section to delete.");
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to permanently delete Class ${year} - Section ${section}? This action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const classId = `${year}_${section}`;
+                await db.collection('classes').doc(classId).delete();
+                alert(`Class ${year} - Section ${section} deleted successfully!`);
+                deleteClassYearInput.value = '';
+                deleteClassSectionInput.value = '';
+            } catch (error) {
+                alert(`Error deleting class: ${error.message}`);
+            }
+        });
+    }
+
     // Initialize
     loadPendingUsers();
 });
