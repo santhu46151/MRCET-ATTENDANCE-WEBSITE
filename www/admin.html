@@ -172,6 +172,24 @@
         </section>
 
         <section class="admin-section glass-panel">
+            <h2><i class="fas fa-cog"></i> Global Semester Settings</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Default Semester Start Date</label>
+                    <input type="date" id="global-sem-start" required>
+                </div>
+                <div class="form-group">
+                    <label>Default Semester End Date</label>
+                    <input type="date" id="global-sem-end" required>
+                </div>
+                <button class="btn btn-primary" id="btn-save-semester-config" style="height: 35px;">
+                    <i class="fas fa-save"></i> Save Settings
+                </button>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">These dates will be used as the default range in the Semester Report for all users.</p>
+        </section>
+
+        <section class="admin-section glass-panel">
             <h2><i class="fas fa-user-plus"></i> Create HOD Account</h2>
             <div class="form-row">
                 <div class="form-group">

@@ -263,6 +263,13 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistoryLogs();
     };
 
+    window.triggerHolidayUpdate = () => {
+        updateStats();
+        renderRoster();
+        renderAbsenteesList();
+        renderHistoryLogs();
+    };
+
     window.setEmptyRosterState = function(message) {
         window.isRosterEmptyError = true;
         window.emptyRosterMessage = message;

@@ -20,9 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
         db.collection('holidays').onSnapshot(snapshot => {
             window.globalHolidays = [];
             snapshot.forEach(doc => window.globalHolidays.push(doc.data()));
-            // Optionally trigger UI update if a render function is available
-            if (typeof window.renderRoster === 'function' && window.currentClassId && window.selectedDate) {
-                window.renderRoster(window.currentClassId, window.selectedDate);
+            // Trigger UI update to show holiday immediately if applicable
+            if (typeof window.triggerHolidayUpdate === 'function') {
+                window.triggerHolidayUpdate();
             }
         });
 
