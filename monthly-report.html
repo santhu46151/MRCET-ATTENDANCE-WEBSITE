@@ -258,10 +258,29 @@
             let history = JSON.parse(localStorage.getItem('attendance_history')) || {};
 
             // Set up local polling update listener to reflect edits dynamically
+            let lastDataHash = JSON.stringify(roster) + JSON.stringify(history);
             setInterval(() => {
-                roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
-                history = JSON.parse(localStorage.getItem('attendance_history')) || {};
-                buildMonthlyGrid();
+                const newRoster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
+                const newHistory = JSON.parse(localStorage.getItem('attendance_history')) || {};
+                const currentHash = JSON.stringify(newRoster) + JSON.stringify(newHistory);
+                
+                if (currentHash !== lastDataHash) {
+                    lastDataHash = currentHash;
+                    roster = newRoster;
+                    history = newHistory;
+                    
+                    // Preserve scroll position
+                    const scrollY = window.scrollY;
+                    const scrollXs = Array.from(document.querySelectorAll('.report-wrapper div[style*="overflow-x"]')).map(el => el.scrollLeft);
+                    
+                    buildMonthlyGrid();
+                    
+                    // Restore scroll position
+                    window.scrollTo(0, scrollY);
+                    Array.from(document.querySelectorAll('.report-wrapper div[style*="overflow-x"]')).forEach((el, idx) => {
+                        if (scrollXs[idx] !== undefined) el.scrollLeft = scrollXs[idx];
+                    });
+                }
             }, 3000);
 
             // Helper to format Date to YYYY-MM-DD
