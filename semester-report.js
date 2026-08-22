@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const endDateInput = document.getElementById('end-date');
     const generateBtn = document.getElementById('generate-btn');
     const exportCsvBtn = document.getElementById('export-csv-btn');
+    const exportPdfBtn = document.getElementById('export-pdf-btn');
     const loading = document.getElementById('loading');
     const reportContent = document.getElementById('report-content');
     const tableBody = document.getElementById('report-table-body');
@@ -23,10 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let globalHolidays = [];
     let currentReportData = null; // store for export
 
-    // Set Default Dates (4 months ago to today for typical semester)
+    // Default Dates Fallback (if no config)
     const today = new Date();
-    const fourMonthsAgo = new Date();
-    fourMonthsAgo.setMonth(today.getMonth() - 4);
+    const defaultStartStr = '2026-07-06';
     
     // Parse URL params
     const urlParams = new URLSearchParams(window.location.search);
@@ -34,10 +34,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlStart = urlParams.get('start');
     const urlEnd = urlParams.get('end');
 
-    startDateInput.value = urlStart || fourMonthsAgo.toISOString().split('T')[0];
-    endDateInput.value = urlEnd || today.toISOString().split('T')[0];
-
     async function init() {
+        // Load Semester Config
+        try {
+            const configDoc = await db.collection('settings').doc('semesterConfig').get();
+            if (configDoc.exists) {
+                const configData = configDoc.data();
+                startDateInput.value = urlStart || configData.startDate || defaultStartStr;
+                endDateInput.value = urlEnd || configData.endDate || today.toISOString().split('T')[0];
+            } else {
+                startDateInput.value = urlStart || defaultStartStr;
+                endDateInput.value = urlEnd || today.toISOString().split('T')[0];
+            }
+        } catch (e) {
+            console.error("Error loading config", e);
+            startDateInput.value = urlStart || defaultStartStr;
+            endDateInput.value = urlEnd || today.toISOString().split('T')[0];
+        }
         // Load Classes
         try {
             let classesSnap;
@@ -227,8 +240,75 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.removeChild(link);
     }
 
+    function exportToPDF() {
+        if (!currentReportData) {
+            alert("Please generate a report first.");
+            return;
+        }
+
+        const { window } = globalThis;
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        const { roster, studentStats, workingDays, classInfo, start, end } = currentReportData;
+
+        // Title
+        doc.setFontSize(18);
+        doc.text("Semester Attendance Report", 14, 22);
+        
+        // Metadata
+        doc.setFontSize(11);
+        doc.setTextColor(100);
+        doc.text(`Class: ${classInfo.replace(/_/g, ' ')}`, 14, 30);
+        doc.text(`Date Range: ${start} to ${end}`, 14, 36);
+        doc.text(`Total Working Days: ${workingDays}`, 14, 42);
+
+        // Table Data
+        const tableColumn = ["Roll No", "Name", "Present", "Absent", "Percentage", "Status"];
+        const tableRows = [];
+
+        roster.forEach(student => {
+            const stats = studentStats[student.rollNo];
+            const percent = workingDays > 0 ? Math.round((stats.present / workingDays) * 100) : 0;
+            const status = percent >= 75 ? "Good" : "Deficient";
+            
+            tableRows.push([
+                student.rollNo,
+                student.name,
+                stats.present.toString(),
+                stats.absent.toString(),
+                percent + "%",
+                status
+            ]);
+        });
+
+        doc.autoTable({
+            startY: 50,
+            head: [tableColumn],
+            body: tableRows,
+            theme: 'striped',
+            headStyles: { fillColor: [59, 130, 246] }, // Primary Blue
+            styles: { fontSize: 9 },
+            didParseCell: function(data) {
+                // Color status column based on value
+                if (data.section === 'body' && data.column.index === 5) {
+                    if (data.cell.raw === 'Good') {
+                        data.cell.styles.textColor = [16, 185, 129]; // Success Green
+                        data.cell.styles.fontStyle = 'bold';
+                    } else if (data.cell.raw === 'Deficient') {
+                        data.cell.styles.textColor = [239, 68, 68]; // Danger Red
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                }
+            }
+        });
+
+        doc.save(`Semester_Report_${classInfo}_${start}_${end}.pdf`);
+    }
+
     generateBtn.addEventListener('click', generateReport);
     exportCsvBtn.addEventListener('click', exportToCSV);
+    exportPdfBtn.addEventListener('click', exportToPDF);
 
     init();
 });

@@ -226,6 +226,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // Semester Date Configuration
+    const globalSemStart = document.getElementById('global-sem-start');
+    const globalSemEnd = document.getElementById('global-sem-end');
+    const btnSaveSemesterConfig = document.getElementById('btn-save-semester-config');
+
+    async function loadSemesterConfig() {
+        if (!globalSemStart || !globalSemEnd) return;
+        try {
+            const doc = await db.collection('settings').doc('semesterConfig').get();
+            if (doc.exists) {
+                const data = doc.data();
+                globalSemStart.value = data.startDate || '';
+                globalSemEnd.value = data.endDate || '';
+            }
+        } catch (error) {
+            console.error("Error loading semester config:", error);
+        }
+    }
+
+    if (btnSaveSemesterConfig) {
+        btnSaveSemesterConfig.addEventListener('click', async () => {
+            const startDate = globalSemStart.value;
+            const endDate = globalSemEnd.value;
+            
+            if (!startDate || !endDate) {
+                alert("Please select both start and end dates.");
+                return;
+            }
+            
+            if (startDate > endDate) {
+                alert("Start date cannot be after end date.");
+                return;
+            }
+
+            try {
+                await db.collection('settings').doc('semesterConfig').set({
+                    startDate: startDate,
+                    endDate: endDate,
+                    updatedBy: authManager.user.uid,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alert("Global semester settings saved successfully!");
+            } catch (error) {
+                alert(`Error saving config: ${error.message}`);
+            }
+        });
+    }
+
     // HOD Account Creation
     const hodNameInput = document.getElementById('hod-name');
     const hodEmailInput = document.getElementById('hod-email');
@@ -272,4 +320,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize
     loadPendingUsers();
     loadHolidays();
+    loadSemesterConfig();
 });

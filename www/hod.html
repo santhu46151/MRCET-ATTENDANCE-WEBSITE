@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOD Analytics Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* HOD Specific Layout Styles */
+        .hod-container {
+            width: 100%;
+            margin: 0;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        
+        /* Date Selector */
+        .date-selector-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            margin-bottom: 1.5rem;
+        }
+        
+        .date-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .date-display {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--primary);
+            min-width: 250px;
+            text-align: center;
+        }
+        
+        .status-badge {
+            padding: 0.35rem 0.85rem;
+            border-radius: 2rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .status-day { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .status-holiday { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+        .status-missing { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+        
+        /* KPI Strip */
+        .kpi-strip {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .kpi-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+        .kpi-title {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .kpi-val {
+            font-size: 2.25rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+        
+        /* Main Grid */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 2rem;
+            align-items: start;
+        }
+        
+        @media (max-width: 1024px) {
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-lg);
+            padding: 1.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .panel-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 1rem;
+            margin: 0;
+        }
+
+        /* Class Bar Styles */
+        .class-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-height: 450px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+        .class-bar-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            cursor: pointer;
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            background: var(--bg-primary);
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .class-bar-container:hover {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.05);
+        }
+        .class-bar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .class-name {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+        .class-stats-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        .progress-track {
+            height: 10px;
+            background: var(--card-border);
+            border-radius: 5px;
+            overflow: hidden;
+            width: 100%;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 5px;
+            transition: width 0.5s ease-out;
+        }
+        
+        /* Rank Item */
+        .rank-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .rank-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: var(--bg-primary);
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .rank-item:hover {
+            background: var(--card-border);
+        }
+        .rank-number {
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            font-size: 0.8rem;
+            margin-right: 1rem;
+        }
+        
+        /* Alerts */
+        .alert-panel {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .alert-panel .panel-title { border-color: rgba(239, 68, 68, 0.2); }
+        .alert-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: var(--bg-primary);
+            border-left: 4px solid var(--danger);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+        }
+        .alert-item:hover { background: var(--bg-secondary); }
+        
+        /* Drawer/Modal Styles */
+        .drilldown-modal {
+            position: fixed;
+            top: 0; right: 0; bottom: 0; left: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            display: none;
+            justify-content: flex-end;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .drilldown-modal.active {
+            display: flex;
+            opacity: 1;
+        }
+        .drawer {
+            width: 100%;
+            max-width: 500px;
+            background: var(--bg-primary);
+            height: 100%;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: -5px 0 25px rgba(0,0,0,0.5);
+        }
+        .drilldown-modal.active .drawer {
+            transform: translateX(0);
+        }
+        .drawer-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-secondary);
+        }
+        .drawer-content {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .student-list-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .student-list-table th, .student-list-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--card-border);
+        }
+        
+        /* Skeleton */
+        .skeleton {
+            animation: pulse 1.5s infinite;
+            background: var(--card-border);
+            border-radius: var(--radius-sm);
+        }
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        
+        /* States */
+        #empty-state-container, #holiday-state-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 5rem 2rem;
+            text-align: center;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            border: 1px dashed var(--card-border);
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+<body class="dark-mode">
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <div class="hod-container">
+        <!-- Main Header -->
+        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <div>
+                <h1 style="font-size: 1.75rem; margin: 0; color: var(--primary);">HOD Analytics</h1>
+                <p style="color: var(--text-secondary); margin: 0.25rem 0 0 0; font-weight: 600;">Data Science Department</p>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn btn-outline" id="theme-toggle" title="Toggle Light/Dark Mode">
+                    <i class="fas fa-sun"></i>
+                </button>
+                <button class="btn btn-outline" id="logout-btn" style="color: var(--danger); border-color: var(--danger-border);">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- Date Selector -->
+        <div class="date-selector-bar">
+            <div class="date-controls">
+                <button class="btn btn-outline btn-sm" id="prev-day-btn"><i class="fas fa-chevron-left"></i> Prev</button>
+                <div class="date-display" id="display-date-text">Loading...</div>
+                <button class="btn btn-outline btn-sm" id="next-day-btn">Next <i class="fas fa-chevron-right"></i></button>
+                <input type="date" id="date-picker-hidden" style="display: none;">
+                <button class="btn btn-outline btn-sm" id="calendar-trigger-btn" title="Select Date"><i class="fas fa-calendar-alt"></i></button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button class="btn btn-primary btn-sm" id="today-btn">Today</button>
+                <div id="day-status-badge" class="status-badge status-day">
+                    <i class="fas fa-circle"></i> <span>Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+            <select id="filter-year" style="padding: 0.5rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); outline: none;">
+                <option value="ALL">All Years</option>
+                <option value="II">II Year</option>
+                <option value="III">III Year</option>
+                <option value="IV">IV Year</option>
+            </select>
+        </div>
+
+        <!-- KPI Strip -->
+        <div class="kpi-strip" id="kpi-strip">
+            <div class="kpi-card">
+                <span class="kpi-title">Total Students</span>
+                <span class="kpi-val" id="kpi-total">0</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-title">Present</span>
+                <span class="kpi-val" id="kpi-present" style="color: var(--success);">0</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-title">Absent</span>
+                <span class="kpi-val" id="kpi-absent" style="color: var(--danger);">0</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-title">Attendance</span>
+                <span class="kpi-val" id="kpi-percent">0%</span>
+            </div>
+        </div>
+
+        <!-- Full Analytics Content -->
+        <div id="analytics-content" class="analytics-grid" style="display: none;">
+            
+            <!-- Left Column -->
+            <div style="display: flex; flex-direction: column; gap: 2rem;">
+                <!-- Hero Chart -->
+                <div class="panel">
+                    <h2 class="panel-title"><i class="fas fa-chart-pie"></i> Department Attendance</h2>
+                    <div style="position: relative; height: 300px; width: 100%; display: flex; justify-content: center; align-items: center;">
+                        <canvas id="hero-chart"></canvas>
+                        <div id="hero-chart-center" style="position: absolute; text-align: center; pointer-events: none;">
+                            <div style="font-size: 2.5rem; font-weight: 900; color: var(--text-primary);" id="hero-percent">0%</div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;" id="hero-status">Status</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Year-wise Chart -->
+                <div class="panel">
+                    <h2 class="panel-title"><i class="fas fa-layer-group"></i> Year-wise Performance</h2>
+                    <div style="position: relative; height: 250px; width: 100%;">
+                        <canvas id="year-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div style="display: flex; flex-direction: column; gap: 2rem;">
+                
+                <!-- Performance Ranking -->
+                <div class="panel">
+                    <h2 class="panel-title"><i class="fas fa-trophy"></i> Top Performing Classes</h2>
+                    <div class="rank-list" id="rank-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Class-wise Bars -->
+                <div class="panel" style="flex: 1;">
+                    <h2 class="panel-title"><i class="fas fa-bars"></i> Class-wise Breakdown</h2>
+                    <div class="class-list" id="class-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                
+                <!-- Low Attendance Alerts -->
+                <div class="panel alert-panel" id="alert-panel" style="display: none;">
+                    <h2 class="panel-title" style="color: var(--danger);"><i class="fas fa-exclamation-triangle"></i> Low Attendance Alerts</h2>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;" id="alert-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state-container">
+            <i class="fas fa-folder-open" style="font-size: 4rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+            <h2 style="font-weight: 800; font-size: 1.5rem; color: var(--text-primary);">Attendance Not Completed</h2>
+            <p style="font-size: 1.1rem; color: var(--text-secondary); margin-top: 0.5rem;">Attendance data is not available for this date yet.</p>
+        </div>
+
+        <!-- Holiday State -->
+        <div id="holiday-state-container">
+            <i class="fas fa-umbrella-beach" style="font-size: 4rem; color: var(--primary); margin-bottom: 1rem;"></i>
+            <h2 style="font-weight: 800; font-size: 1.5rem; color: var(--text-primary);">Holiday <span id="holiday-name-text" style="color: var(--primary);"></span></h2>
+            <p style="font-size: 1.1rem; color: var(--text-secondary); margin-top: 0.5rem;">Attendance was not required for this date.</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-container" style="text-align: center; padding: 5rem 2rem;">
+            <i class="fas fa-spinner fa-spin fa-3x" style="color: var(--primary);"></i>
+            <p style="margin-top: 1rem; font-weight: 600; color: var(--text-secondary);">Loading analytics...</p>
+        </div>
+
+    </div>
+
+    <!-- Drill-down Drawer -->
+    <div class="drilldown-modal" id="drilldown-modal">
+        <div class="drawer" id="drawer-panel">
+            <div class="drawer-header">
+                <div>
+                    <h2 id="drawer-class-title" style="margin: 0; font-size: 1.5rem; color: var(--primary);">Class Name</h2>
+                    <p id="drawer-class-subtitle" style="margin: 0.25rem 0 0 0; font-size: 0.9rem; color: var(--text-secondary); font-weight: 600;">XX Students • XX% Attendance</p>
+                </div>
+                <button class="btn btn-outline" id="close-drawer-btn" style="border: none;"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            <div class="drawer-content">
+                
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; background: var(--bg-secondary); padding: 0.25rem; border-radius: var(--radius-sm);">
+                    <button class="btn" id="tab-all" style="flex: 1; background: var(--bg-primary); border: none;">All</button>
+                    <button class="btn" id="tab-present" style="flex: 1; background: transparent; border: none; color: var(--text-secondary);">Present</button>
+                    <button class="btn" id="tab-absent" style="flex: 1; background: transparent; border: none; color: var(--text-secondary);">Absent</button>
+                </div>
+
+                <div style="position: relative; margin-bottom: 1.5rem;">
+                    <i class="fas fa-search" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <input type="text" id="student-search" placeholder="Search student..." style="width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; outline: none;">
+                </div>
+
+                <table class="student-list-table">
+                    <thead>
+                        <tr>
+                            <th>Roll No</th>
+                            <th>Name</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="drawer-student-list">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
+    
+    <!-- App Logic Scripts -->
+    <script src="auth.js"></script>
+    <script src="hod.js"></script>
+</body>
+</html>
