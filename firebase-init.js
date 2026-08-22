@@ -14,6 +14,18 @@ if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
+// Initialize Secondary App for Admin User Creation (prevents logging out current user)
+let secondaryApp;
+const apps = firebase.apps;
+for (let i = 0; i < apps.length; i++) {
+    if (apps[i].name === 'AdminApp') {
+        secondaryApp = apps[i];
+    }
+}
+if (!secondaryApp) {
+    secondaryApp = firebase.initializeApp(firebaseConfig, 'AdminApp');
+}
+
 // Get instances
 window.db = firebase.firestore();
 
@@ -28,3 +40,5 @@ window.db.enablePersistence()
   });
 
 window.auth = firebase.auth();
+window.adminAuth = secondaryApp.auth();
+

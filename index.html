@@ -42,6 +42,9 @@
                 <a href="monthly-report.html" class="btn btn-outline" id="monthly-report-btn" title="View Monthly Attendance report">
                     <i class="fas fa-calendar-alt"></i> Monthly Report
                 </a>
+                <a href="semester-report.html" class="btn btn-outline" id="semester-report-btn" title="View Semester Attendance report">
+                    <i class="fas fa-book-open"></i> Semester Report
+                </a>
                 <button class="btn btn-outline" id="export-btn" title="Export Attendance Report">
                     <i class="fas fa-file-export"></i> Export
                 </button>
@@ -111,9 +114,6 @@
                 <div class="panel-header">
                     <h2>Student Roster</h2>
                     <div class="header-actions">
-                        <button class="btn btn-outline" id="mark-holiday-btn" style="color: var(--primary); border-color: var(--primary-light);" title="Mark this date as a holiday">
-                            <i class="fas fa-umbrella-beach"></i> Mark Holiday
-                        </button>
                         <button class="btn btn-outline" id="mark-all-present" title="Mark all students present">Mark All Present</button>
                         <button class="btn btn-outline" id="mark-all-absent" title="Mark all students absent">Mark All Absent</button>
                     </div>
@@ -125,14 +125,10 @@
                         <input type="text" id="search-input" placeholder="Search by roll number or name...">
                     </div>
                 </div>
-                <!-- Holiday Banner (Toggled by JS) -->
                 <div id="holiday-banner" style="display: none; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; padding: 4rem 2rem; text-align: center; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px dashed var(--card-border);">
                     <div style="font-size: 3.5rem; color: var(--primary);"><i class="fas fa-umbrella-beach"></i></div>
                     <h2 style="font-weight: 800; font-size: 1.5rem;">Holiday Mode</h2>
                     <p id="holiday-reason-text" style="font-size: 1.1rem; color: var(--text-secondary); font-weight: 600; max-width: 400px; line-height: 1.4;">Reason: School Holiday</p>
-                    <button class="btn btn-outline" id="remove-holiday-btn" style="color: var(--primary); border-color: var(--primary); margin-top: 0.5rem;">
-                        <i class="fas fa-edit"></i> Resume Class Attendance
-                    </button>
                 </div>
                 <!-- Student Card Grid -->
                 <div class="student-grid" id="students-grid-container">

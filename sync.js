@@ -15,6 +15,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const authUser = authManager.user;
         if (!authUser) return;
 
+        // Fetch global holidays
+        window.globalHolidays = [];
+        db.collection('holidays').onSnapshot(snapshot => {
+            window.globalHolidays = [];
+            snapshot.forEach(doc => window.globalHolidays.push(doc.data()));
+            // Optionally trigger UI update if a render function is available
+            if (typeof window.renderRoster === 'function' && window.currentClassId && window.selectedDate) {
+                window.renderRoster(window.currentClassId, window.selectedDate);
+            }
+        });
+
         // Fetch available classes
         const classesSnapshot = await db.collection('classes').get();
         if (!classesSnapshot.empty && classDropdown) {

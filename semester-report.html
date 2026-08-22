@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semester Attendance Report</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .report-controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+            align-items: center;
+        }
+        .report-controls select, .report-controls input {
+            padding: 0.5rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--card-border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .table-responsive {
+            overflow-x: auto;
+        }
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+        .report-table th, .report-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .report-table th {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+        .report-table tr:last-child td {
+            border-bottom: none;
+        }
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .status-good {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+        .status-deficient {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+    </style>
+</head>
+<body class="dark-mode">
+    <div class="bg-glow"></div>
+    <div class="bg-glow-2"></div>
+
+    <div class="container">
+        <header class="glass-panel" style="margin-bottom: 2rem;">
+            <div class="header-info">
+                <h1><i class="fas fa-book-open" style="color: var(--primary);"></i> Semester Attendance Report</h1>
+                <p style="color: var(--text-muted); margin-top: 0.5rem;">Comprehensive student-level attendance tracking.</p>
+            </div>
+            <div class="header-actions">
+                <a href="index.html" class="btn btn-outline" id="back-btn">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+                <button class="btn btn-primary" id="export-csv-btn">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
+            </div>
+        </header>
+
+        <section class="glass-panel" style="margin-bottom: 2rem; padding: 1.5rem;">
+            <div class="report-controls">
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Select Class</label>
+                    <select id="class-select">
+                        <option value="">Loading classes...</option>
+                    </select>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Semester Start Date</label>
+                    <input type="date" id="start-date">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">End Date</label>
+                    <input type="date" id="end-date">
+                </div>
+                <div style="display: flex; align-items: flex-end; margin-bottom: 0.15rem;">
+                    <button class="btn btn-primary" id="generate-btn" style="height: 38px;">
+                        <i class="fas fa-sync-alt"></i> Generate Report
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <div id="loading" style="display: none; text-align: center; padding: 2rem;">
+            <i class="fas fa-spinner fa-spin fa-2x" style="color: var(--primary);"></i>
+            <p>Processing Data...</p>
+        </div>
+
+        <div id="report-content" style="display: none;">
+            <div class="summary-cards">
+                <div class="stat-card glass-panel" style="padding: 1.5rem;">
+                    <h3 style="font-size: 1rem; color: var(--text-secondary);">Total Working Days</h3>
+                    <div id="summary-working-days" style="font-size: 2rem; font-weight: 800; color: var(--primary);">0</div>
+                </div>
+                <div class="stat-card glass-panel" style="padding: 1.5rem;">
+                    <h3 style="font-size: 1rem; color: var(--text-secondary);">Total Students</h3>
+                    <div id="summary-total-students" style="font-size: 2rem; font-weight: 800; color: var(--text-primary);">0</div>
+                </div>
+                <div class="stat-card glass-panel" style="padding: 1.5rem;">
+                    <h3 style="font-size: 1rem; color: var(--text-secondary);">Class Average %</h3>
+                    <div id="summary-average-percent" style="font-size: 2rem; font-weight: 800; color: var(--success);">0%</div>
+                </div>
+            </div>
+
+            <div class="glass-panel" style="padding: 1.5rem;">
+                <h2 style="margin-bottom: 1rem; font-size: 1.25rem;"><i class="fas fa-users"></i> Student Breakdown</h2>
+                <div class="table-responsive">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Roll Number</th>
+                                <th>Student Name</th>
+                                <th>Classes Attended</th>
+                                <th>Classes Missed</th>
+                                <th>Percentage</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
+    
+    <!-- App Logic Scripts -->
+    <script src="auth.js"></script>
+    <script src="semester-report.js"></script>
+</body>
+</html>

@@ -164,6 +164,112 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Holiday Management
+    const holidayDateInput = document.getElementById('holiday-date');
+    const holidayReasonInput = document.getElementById('holiday-reason');
+    const btnAddHoliday = document.getElementById('btn-add-holiday');
+    const holidaysBody = document.getElementById('holidays-body');
+
+    function loadHolidays() {
+        if (!holidaysBody) return;
+        db.collection('holidays').orderBy('date', 'desc').onSnapshot(snapshot => {
+            holidaysBody.innerHTML = '';
+            if (snapshot.empty) {
+                holidaysBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No holidays found.</td></tr>';
+                return;
+            }
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${data.date}</td>
+                    <td>${data.reason}</td>
+                    <td>
+                        <button class="btn btn-outline btn-sm" style="color: var(--danger); border-color: var(--danger-border);" onclick="deleteHoliday('${doc.id}')">Delete</button>
+                    </td>
+                `;
+                holidaysBody.appendChild(tr);
+            });
+        });
+    }
+
+    if (btnAddHoliday) {
+        btnAddHoliday.addEventListener('click', async () => {
+            const date = holidayDateInput.value;
+            const reason = holidayReasonInput.value.trim();
+            if (!date || !reason) {
+                alert("Please select a date and enter a reason.");
+                return;
+            }
+            try {
+                await db.collection('holidays').doc(date).set({
+                    date: date,
+                    reason: reason,
+                    createdBy: authManager.user.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alert("Holiday added successfully!");
+                holidayDateInput.value = '';
+                holidayReasonInput.value = '';
+            } catch (error) {
+                alert(`Error adding holiday: ${error.message}`);
+            }
+        });
+    }
+
+    window.deleteHoliday = async (date) => {
+        if (!confirm(`Are you sure you want to delete the holiday on ${date}?`)) return;
+        try {
+            await db.collection('holidays').doc(date).delete();
+        } catch (error) {
+            alert(`Error deleting holiday: ${error.message}`);
+        }
+    };
+
+    // HOD Account Creation
+    const hodNameInput = document.getElementById('hod-name');
+    const hodEmailInput = document.getElementById('hod-email');
+    const hodPasswordInput = document.getElementById('hod-password');
+    const btnCreateHod = document.getElementById('btn-create-hod');
+
+    if (btnCreateHod) {
+        btnCreateHod.addEventListener('click', async () => {
+            const name = hodNameInput.value.trim();
+            const email = hodEmailInput.value.trim().toLowerCase();
+            const password = hodPasswordInput.value;
+            
+            if (!name || !email || password.length < 6) {
+                alert("Please fill all fields. Password must be at least 6 characters.");
+                return;
+            }
+
+            try {
+                // Use secondary app to prevent logging out admin
+                const userCredential = await window.adminAuth.createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                
+                await db.collection('users').doc(user.uid).set({
+                    name: name,
+                    email: email,
+                    role: 'hod',
+                    isApproved: true,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                alert(`HOD Account for ${name} created successfully!`);
+                hodNameInput.value = '';
+                hodEmailInput.value = '';
+                hodPasswordInput.value = '';
+                
+                // Sign out from the secondary app to prevent lingering sessions
+                await window.adminAuth.signOut();
+            } catch (error) {
+                alert(`Error creating HOD: ${error.message}`);
+            }
+        });
+    }
+
     // Initialize
     loadPendingUsers();
+    loadHolidays();
 });

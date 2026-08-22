@@ -114,10 +114,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const localDD = String(todayObj.getDate()).padStart(2, '0');
     let selectedDate = `${localYYYY}-${localMM}-${localDD}`;
 
+    // Helper to get active holiday object if any
+    function getActiveHoliday() {
+        if (window.globalHolidays) {
+            return window.globalHolidays.find(h => h.date === selectedDate) || null;
+        }
+        return null;
+    }
+
     // Helper to check if current date is holiday
     function isHolidayActive() {
-        const entry = attendanceHistory[selectedDate];
-        return entry && entry.isHoliday;
+        return getActiveHoliday() !== null;
     }
 
     // Helper to get roster with state for selected date
@@ -164,10 +171,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearHistoryBtn = document.getElementById('clear-history-btn');
     
     // Holiday DOM Elements
-    const markHolidayBtn = document.getElementById('mark-holiday-btn');
     const holidayBanner = document.getElementById('holiday-banner');
     const holidayReasonText = document.getElementById('holiday-reason-text');
-    const removeHolidayBtn = document.getElementById('remove-holiday-btn');
     const searchFilterRow = document.getElementById('search-filter-row');
 
     // Set initial date picker value
@@ -320,10 +325,10 @@ document.addEventListener('DOMContentLoaded', () => {
             gridContainer.style.display = 'none';
             searchFilterRow.style.display = 'none';
             holidayBanner.style.display = 'flex';
-            holidayReasonText.innerText = `Reason: ${attendanceHistory[selectedDate].holidayReason || 'School Holiday'}`;
+            const holiday = getActiveHoliday();
+            holidayReasonText.innerText = `Reason: ${holiday ? holiday.reason : 'School Holiday'}`;
             markAllPresentBtn.disabled = true;
             markAllAbsentBtn.disabled = true;
-            markHolidayBtn.innerHTML = '<i class="fas fa-edit"></i> Edit Holiday';
             return;
         }
 
@@ -332,7 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
         holidayBanner.style.display = 'none';
         markAllPresentBtn.disabled = false;
         markAllAbsentBtn.disabled = false;
-        markHolidayBtn.innerHTML = '<i class="fas fa-umbrella-beach"></i> Mark Holiday';
 
         const activeStudents = getStudents();
         const filtered = activeStudents.filter(student => {
@@ -753,38 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Mark Holiday button click handler
-    markHolidayBtn.addEventListener('click', () => {
-        const defaultReason = attendanceHistory[selectedDate]?.holidayReason || "School Holiday";
-        const reason = prompt("Enter the reason for the holiday:", defaultReason);
-        if (reason === null) return; // user cancelled prompt
-        
-        attendanceHistory[selectedDate] = {
-            isHoliday: true,
-            holidayReason: reason.trim() || "School Holiday",
-            attendance: {}
-        };
-        saveState();
-        updateStats();
-        renderRoster();
-        renderAbsenteesList();
-        renderHistoryLogs();
-    });
 
-    // Remove Holiday Mode button click handler
-    removeHolidayBtn.addEventListener('click', () => {
-        if (confirm("Resume class attendance for this date? This will cancel Holiday Mode.")) {
-            attendanceHistory[selectedDate] = {
-                isHoliday: false,
-                attendance: {}
-            };
-            saveState();
-            updateStats();
-            renderRoster();
-            renderAbsenteesList();
-            renderHistoryLogs();
-        }
-    });
 
     // Date picker change event
     datePicker.addEventListener('change', (e) => {
