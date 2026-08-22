@@ -56,8 +56,14 @@ document.addEventListener('DOMContentLoaded', () => {
             let classesSnap;
             if (authManager.user.role === 'admin' || authManager.user.role === 'hod') {
                 classesSnap = await db.collection('classes').get();
-            } else {
+            } else if (authManager.user.role === 'faculty') {
                 classesSnap = await db.collection('classes').where('facultyUid', '==', authManager.user.uid).get();
+            } else if (authManager.user.role === 'student' && authManager.user.year && authManager.user.section) {
+                const classId = `${authManager.user.year}_${authManager.user.section}`;
+                const classDoc = await db.collection('classes').doc(classId).get();
+                classesSnap = classDoc.exists ? [classDoc] : [];
+            } else {
+                classesSnap = [];
             }
 
             classSelect.innerHTML = '<option value="">-- Select Class --</option>';
