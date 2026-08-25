@@ -133,6 +133,113 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     });
 
+    // Parse CSV and Upload Timetable
+    const btnUploadTt = document.getElementById('btn-upload-tt');
+    const ttClassYearInput = document.getElementById('tt-class-year');
+    const ttClassSectionInput = document.getElementById('tt-class-section');
+    const ttCsvInput = document.getElementById('tt-csv');
+
+    if (btnUploadTt) {
+        btnUploadTt.addEventListener('click', async () => {
+            const year = ttClassYearInput.value.trim();
+            const section = ttClassSectionInput.value.trim();
+            const file = ttCsvInput.files[0];
+
+            if (!year || !section || !file) {
+                alert("Please fill in Year, Section, and select a CSV file.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const text = e.target.result;
+                const lines = text.split('\n');
+                const schedule = {};
+                
+                // Expected header: Day, Period, StartTime, EndTime, Subject, Faculty, Session
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+
+                    const parts = line.split(',');
+                    if (parts.length >= 7) {
+                        const day = parts[0].trim();
+                        if (!schedule[day]) {
+                            schedule[day] = [];
+                        }
+                        schedule[day].push({
+                            period: parts[1].trim(),
+                            startTime: parts[2].trim(),
+                            endTime: parts[3].trim(),
+                            subject: parts[4].trim(),
+                            faculty: parts[5].trim(),
+                            session: parts[6].trim().toUpperCase() // 'MORNING' or 'AFTERNOON'
+                        });
+                    }
+                }
+
+                if (Object.keys(schedule).length === 0) {
+                    alert("No valid rows found in CSV. Please ensure it has 7 columns: Day, Period, StartTime, EndTime, Subject, Faculty, Session");
+                    return;
+                }
+
+                try {
+                    const classId = `${year}_${section}`;
+                    await db.collection('timetables').doc(classId).set({
+                        schedule: schedule,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    alert(`Timetable for ${year} ${section} uploaded successfully!`);
+                    ttClassYearInput.value = '';
+                    ttClassSectionInput.value = '';
+                    ttCsvInput.value = '';
+                } catch (error) {
+                    alert(`Error uploading timetable: ${error.message}`);
+                }
+            };
+            reader.readAsText(file);
+        });
+    }
+
+    // Save Academic Calendar
+    const btnSaveAcad = document.getElementById('btn-save-acad');
+    if (btnSaveAcad) {
+        btnSaveAcad.addEventListener('click', async () => {
+            const term = document.getElementById('acad-term').value.trim();
+            const startDate = document.getElementById('acad-start-date').value;
+            const endDate = document.getElementById('acad-end-date').value;
+
+            if (!term || !startDate || !endDate) {
+                alert("Please fill all fields.");
+                return;
+            }
+
+            try {
+                // Fetch existing holidays if any, or default to empty array
+                const docRef = await db.collection('academic_calendar').doc(term).get();
+                const existingHolidays = docRef.exists ? docRef.data().holidays || [] : [];
+                
+                await db.collection('academic_calendar').doc(term).set({
+                    term: term,
+                    startDate: startDate,
+                    endDate: endDate,
+                    holidays: existingHolidays,
+                    workingDays: { 0: false, 1: true, 2: true, 3: true, 4: true, 5: true, 6: false }, // Mon-Fri true
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                alert(`Academic Calendar for ${term} saved successfully!`);
+                document.getElementById('acad-term').value = '';
+                document.getElementById('acad-start-date').value = '';
+                document.getElementById('acad-end-date').value = '';
+            } catch (error) {
+                alert(`Error saving Academic Calendar: ${error.message}`);
+            }
+        });
+    }
+
+
     const btnDeleteClass = document.getElementById('btn-delete-class');
     const deleteClassYearInput = document.getElementById('delete-class-year');
     const deleteClassSectionInput = document.getElementById('delete-class-section');

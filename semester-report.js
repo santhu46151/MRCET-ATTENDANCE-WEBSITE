@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const roster = data.roster || [];
             const history = data.history || {};
 
-            let workingDays = 0;
+            let workingDays = 0; // Represents Total Scheduled Sessions
             const studentStats = {};
 
             // Initialize student stats
@@ -124,32 +124,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             });
 
-            // Process History
-            const todayStr = today.toISOString().split('T')[0];
+            // Fetch timetable for this class
+            let timetable = {};
+            try {
+                const ttDoc = await db.collection('timetables').doc(classId).get();
+                if (ttDoc.exists) {
+                    timetable = ttDoc.data().schedule || {};
+                }
+            } catch (e) {
+                console.warn("Could not fetch timetable for class", classId, e);
+            }
 
-            Object.keys(history).forEach(dateStr => {
-                // Filter bounds
-                if (dateStr < start || dateStr > end) return;
-                // Exclude future
-                if (dateStr > todayStr) return;
+            // Generate date range
+            const startD = new Date(start);
+            const endD = new Date(end);
+            const todayD = new Date(today.toISOString().split('T')[0]);
+            const finalEndD = endD > todayD ? todayD : endD;
+            
+            const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+            for (let d = new Date(startD); d <= finalEndD; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().split('T')[0];
+                
                 // Exclude holidays
-                if (globalHolidays.includes(dateStr)) return;
-                if (history[dateStr].isHoliday) return; // Legacy support
+                if (globalHolidays.includes(dateStr)) continue;
+                
+                const dayName = daysOfWeek[d.getDay()];
+                
+                // Single daily session logic
+                workingDays++; // Increment total scheduled classes
+                
+                let attendanceMap = {};
+                
+                if (history[dateStr] && !history[dateStr].isHoliday) {
+                    attendanceMap = history[dateStr].attendance || history[dateStr];
+                    if (typeof attendanceMap === 'object' && attendanceMap.attendance) {
+                        attendanceMap = attendanceMap.attendance;
+                    }
+                }
 
-                workingDays++;
-                
-                const attendance = history[dateStr].attendance || {};
-                
                 roster.forEach(student => {
-                    const status = attendance[student.rollNo];
+                    // If no record exists at all for this session, we assume present (default behaviour in old system)
+                    const status = attendanceMap[student.rollNo];
                     if (status === 'absent') {
                         studentStats[student.rollNo].absent++;
                     } else {
-                        // Assuming present if not marked absent (default behaviour in old system)
                         studentStats[student.rollNo].present++;
                     }
                 });
-            });
+            }
 
             // Render Report
             renderReport(roster, studentStats, workingDays);
