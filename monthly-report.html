@@ -7,7 +7,8 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- SheetJS library to export genuine Excel files -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <!-- App Configuration and Auth -->
     <script src="auth.js"></script>
@@ -216,8 +217,11 @@
                 <button class="btn btn-outline" id="export-excel-btn" style="color: #107c41; border-color: #107c41;">
                     <i class="fas fa-file-excel"></i> Export to Excel (.xlsx)
                 </button>
-                <button class="btn btn-primary" onclick="window.print()">
+                <button class="btn btn-primary" id="print-btn" onclick="window.print()">
                     <i class="fas fa-print"></i> Print Report
+                </button>
+                <button class="btn btn-primary" id="export-pdf-btn" style="background: var(--danger); border-color: var(--danger-border); display: none;">
+                    <i class="fas fa-file-pdf"></i> Export PDF
                 </button>
             </div>
         </section>
@@ -490,6 +494,42 @@
                 const wb = XLSX.utils.table_to_book(table, { raw: true });
                 XLSX.writeFile(wb, `Monthly_Attendance_Report_${monthName}_${selectedYear}.xlsx`);
             });
+
+            // Export to PDF logic
+            document.getElementById('export-pdf-btn').addEventListener('click', () => {
+                const element = document.getElementById('report-container');
+                if (!element) return;
+                
+                const pickerVal = monthPicker.value;
+                const [selectedYear, selectedMonth] = pickerVal.split('-').map(Number);
+                const monthName = getMonthName(selectedMonth - 1);
+
+                // Temporarily hide actions for cleaner PDF
+                const actionsDiv = document.querySelector('.report-actions');
+                if(actionsDiv) actionsDiv.style.display = 'none';
+
+                const opt = {
+                    margin:       0.5,
+                    filename:     `Monthly_Attendance_Report_${monthName}_${selectedYear}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2 },
+                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+                };
+                
+                html2pdf().set(opt).from(element).save().then(() => {
+                    // Restore actions
+                    if(actionsDiv) actionsDiv.style.display = 'flex';
+                });
+            });
+
+            // Toggle Print/PDF buttons based on Native App presence
+            if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+                const printBtn = document.getElementById('print-btn');
+                if (printBtn) printBtn.style.display = 'none';
+                
+                const pdfBtn = document.getElementById('export-pdf-btn');
+                if (pdfBtn) pdfBtn.style.display = 'inline-flex';
+            }
         });
     </script>
 </body>
