@@ -19,14 +19,19 @@
         <!-- Dashboard Header -->
         <header class="glass-panel" id="main-header">
             <div class="header-info">
-                <h1 style="display: flex; align-items: center; gap: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <button class="btn btn-outline btn-sm" id="back-to-admin-btn" style="display: none; padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="window.location.href='admin.html'">
+                        <i class="fas fa-arrow-left"></i> Admin Portal
+                    </button>
+                </div>
+                <h1 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
                     Attendance Dashboard
                     <span id="sync-dot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #10b981; vertical-align: middle;" title="Synced to Cloud"></span>
                 </h1>
                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
                     <i class="far fa-calendar-alt" style="color: var(--primary);"></i>
                     <input type="date" id="attendance-date-picker" style="border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); outline: none; cursor: pointer; transition: var(--transition);">
-                    
+
                     <select id="class-dropdown" style="display: none; border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); outline: none; cursor: pointer; margin-left: 0.5rem; transition: var(--transition);">
                         <!-- Options populated by JS -->
                     </select>
@@ -149,14 +154,6 @@
                 </div>
                 <!-- Copiable Absentee list -->
                 <div style="display: flex; flex-direction: column; gap: 1rem; padding-top: 0.5rem;">
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label for="absent-message-format" style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Message Format:</label>
-                        <select id="absent-message-format" style="padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-weight: 600; outline: none; cursor: pointer;">
-                            <option value="an">AN (Afternoon Session)</option>
-                            <option value="fn">FN (Forenoon Session)</option>
-                            <option value="both">FN & AN Session</option>
-                        </select>
-                    </div>
                     <textarea id="absent-message-box" readonly style="font-family: monospace; font-size: 1rem; font-weight: 600; color: var(--text-primary); background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); line-height: 1.5; min-height: 160px; resize: vertical; outline: none;" placeholder="Generated message will appear here..."></textarea>
                     <button class="btn btn-primary" id="copy-message-btn" style="justify-content: center; background: #10b981; border-color: #10b981; font-size: 1rem; padding: 0.75rem 1rem; width: 100%; color: white;" title="Copy to clipboard">
                         Copy Message
@@ -209,7 +206,7 @@
                         <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0.25rem 0 0 0;">Get the offline version for Windows to mark attendance without an internet connection.</p>
                     </div>
                 </div>
-                <a href="https://github.com/santhu46151/MRCET-ATTENDANCE-WEBSITE/releases/download/v1.1.1/MRCET.Attendance.Setup.1.1.1.exe" download="MRCET-Attendance-Setup-1.1.1.exe" class="btn btn-primary" style="padding: 0.8rem 1.5rem; font-size: 1rem; border-radius: var(--radius-md);" onclick="setTimeout(() => { this.style.pointerEvents='none'; this.style.opacity='0.6'; this.innerHTML='<i class=\'fas fa-check\'></i> Downloaded'; }, 100);">
+                <a href="https://github.com/santhu46151/MRCET-ATTENDANCE-WEBSITE/releases/download/v1.1.3/MRCET.Attendance.Setup.1.1.3.exe" download="MRCET-Attendance-Setup-1.1.3.exe" class="btn btn-primary" style="padding: 0.8rem 1.5rem; font-size: 1rem; border-radius: var(--radius-md);" onclick="setTimeout(() => { this.style.pointerEvents='none'; this.style.opacity='0.6'; this.innerHTML='<i class=\'fas fa-check\'></i> Downloaded'; }, 100);">
                     <i class="fas fa-download"></i> Download for Windows
                 </a>
             </section>

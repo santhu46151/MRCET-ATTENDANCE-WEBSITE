@@ -256,6 +256,7 @@
             // Load Data from LocalStorage (synced by auth/sync manager API)
             let roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
             let history = JSON.parse(localStorage.getItem('attendance_history')) || {};
+            let globalHolidays = JSON.parse(localStorage.getItem('global_holidays')) || [];
 
             // Set up local polling update listener to reflect edits dynamically
             let lastDataHash = JSON.stringify(roster) + JSON.stringify(history);
@@ -268,6 +269,7 @@
                     lastDataHash = currentHash;
                     roster = newRoster;
                     history = newHistory;
+                    globalHolidays = JSON.parse(localStorage.getItem('global_holidays')) || [];
                     
                     // Preserve scroll position
                     const scrollY = window.scrollY;
@@ -325,7 +327,8 @@
                 let schoolDaysCount = 0;
                 monthDates.forEach(col => {
                     const record = history[col.key];
-                    const isHoliday = col.isSunday || (record && record.isHoliday);
+                    const globalHol = globalHolidays.find(h => h.date === col.key);
+                    const isHoliday = col.isSunday || (record && record.isHoliday) || globalHol;
                     if (!isHoliday) {
                         schoolDaysCount++;
                     }
@@ -359,6 +362,7 @@
                     let presentCount = 0;
                     monthDates.forEach((col, colIdx) => {
                         const record = history[col.key];
+                        const globalHol = globalHolidays.find(h => h.date === col.key);
                         const isSunday = col.isSunday;
                         const isLoggedHoliday = record && record.isHoliday;
                         
@@ -367,10 +371,10 @@
                                 // Vertical text layout for SUNDAY spanning all rows
                                 rowHTML += `<td rowspan="${roster.length}" style="background-color: #fef08a; color: #4f46e5; font-weight: 700; text-align: center; font-size: 0.65rem; line-height: 1.2; padding: 2px 0; word-break: break-all; width: 25px; min-width: 25px; vertical-align: middle;">S<br>U<br>N<br>D<br>A<br>Y</td>`;
                             }
-                        } else if (isLoggedHoliday) {
+                        } else if (isLoggedHoliday || globalHol) {
                             if (index === 0) {
                                 // Vertical text layout for custom holiday reason spanning all rows
-                                const reason = record.holidayReason || "Holiday";
+                                const reason = (globalHol && globalHol.reason) ? globalHol.reason : (record && record.holidayReason ? record.holidayReason : "Holiday");
                                 const stackedReason = reason.substring(0, 10).toUpperCase().split('').join('<br>');
                                 rowHTML += `<td rowspan="${roster.length}" style="background-color: #fef08a; color: #b45309; font-weight: 700; text-align: center; font-size: 0.65rem; line-height: 1.2; padding: 2px 0; word-break: break-all; width: 25px; min-width: 25px; vertical-align: middle;" title="${reason}">${stackedReason}</td>`;
                             }

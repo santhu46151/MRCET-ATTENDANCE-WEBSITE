@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         db.collection('holidays').onSnapshot(snapshot => {
             window.globalHolidays = [];
             snapshot.forEach(doc => window.globalHolidays.push(doc.data()));
+            localStorage.setItem('global_holidays', JSON.stringify(window.globalHolidays));
             // Trigger UI update to show holiday immediately if applicable
             if (typeof window.triggerHolidayUpdate === 'function') {
                 window.triggerHolidayUpdate();

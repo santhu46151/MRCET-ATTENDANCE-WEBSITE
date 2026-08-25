@@ -67,7 +67,7 @@
         }
         .input-wrapper input {
             width: 100%;
-            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            padding: 0.75rem 2.5rem;
             border-radius: var(--radius-md);
             border: 1px solid var(--card-border);
             background: var(--bg-secondary);
@@ -77,6 +77,17 @@
             outline: none;
             box-sizing: border-box;
             transition: var(--transition);
+        }
+        .input-wrapper .toggle-password {
+            left: auto;
+            right: 1rem;
+            cursor: pointer;
+            pointer-events: auto;
+            color: var(--text-muted);
+            transition: color 0.2s;
+        }
+        .input-wrapper .toggle-password:hover {
+            color: var(--primary);
         }
         .input-wrapper input:focus {
             border-color: var(--primary);
@@ -119,14 +130,18 @@
     <script src="firebase-init.js"></script>
     <script src="auth.js"></script>
 
-    <div class="login-card glass-panel">
+    <div class="login-card glass-panel" id="main-panel">
         <div class="logo-section">
-            <i class="fas fa-user-shield"></i>
-            <h1 id="panel-title">Secure Portal</h1>
-            <p id="panel-subtitle">Login to sync attendance database</p>
+            <i class="fas fa-university"></i>
+            <h1 id="panel-title">MRCET Portal</h1>
+            <p id="panel-subtitle">Welcome back, please log in</p>
         </div>
 
+        <!-- Login Form directly visible -->
         <section id="auth-section">
+            <div style="margin-bottom: 1rem;">
+                <h2 id="login-form-title" style="margin: 0.5rem 0 0 0; font-size: 1.25rem; text-align: center;">Login</h2>
+            </div>
             <form id="login-form">
                 <div class="input-group">
                     <label for="auth-username">Email</label>
@@ -140,6 +155,7 @@
                     <div class="input-wrapper">
                         <i class="fas fa-lock"></i>
                         <input type="password" id="auth-password" required placeholder="••••••••">
+                        <i class="fas fa-eye toggle-password" id="toggle-auth-password"></i>
                     </div>
                 </div>
                 
@@ -162,7 +178,15 @@
             const loginForm = document.getElementById('login-form');
             const usernameInput = document.getElementById('auth-username');
             const passwordInput = document.getElementById('auth-password');
-            const btnForgotPassword = document.getElementById('btn-forgot-password');
+            const forgotPasswordBtn = document.getElementById('btn-forgot-password');
+            const togglePasswordBtn = document.getElementById('toggle-auth-password');
+
+            togglePasswordBtn.addEventListener('click', () => {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                togglePasswordBtn.classList.toggle('fa-eye');
+                togglePasswordBtn.classList.toggle('fa-eye-slash');
+            });
 
             // Login Handler
             loginForm.addEventListener('submit', async (e) => {

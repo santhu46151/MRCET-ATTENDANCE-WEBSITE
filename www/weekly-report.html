@@ -247,6 +247,7 @@
             // Load Data from LocalStorage (synced by auth/sync manager API)
             let roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
             let history = JSON.parse(localStorage.getItem('attendance_history')) || {};
+            let globalHolidays = JSON.parse(localStorage.getItem('global_holidays')) || [];
             const showAllToggle = document.getElementById('show-all-weeks-toggle');
 
             // Set up local polling update listener to reflect edits dynamically
@@ -260,6 +261,7 @@
                     lastDataHash = currentHash;
                     roster = newRoster;
                     history = newHistory;
+                    globalHolidays = JSON.parse(localStorage.getItem('global_holidays')) || [];
                     
                     // Preserve scroll position
                     const scrollY = window.scrollY;
@@ -340,7 +342,8 @@
                     let schoolDaysCount = 0;
                     weekDates.forEach(col => {
                         const record = history[col.key] || {};
-                        if (!record.isHoliday) {
+                        const globalHol = globalHolidays.find(h => h.date === col.key);
+                        if (!record.isHoliday && !globalHol) {
                             schoolDaysCount++;
                         }
                     });
@@ -370,9 +373,10 @@
                         let presentCount = 0;
                         weekDates.forEach((col, colIdx) => {
                             const record = history[col.key];
-                            if (record && record.isHoliday) {
+                            const globalHol = globalHolidays.find(h => h.date === col.key);
+                            if ((record && record.isHoliday) || globalHol) {
                                 if (index === 0) {
-                                    const reason = record.holidayReason || "Holiday";
+                                    const reason = (globalHol && globalHol.reason) ? globalHol.reason : (record && record.holidayReason ? record.holidayReason : "Holiday");
                                     const stackedReason = reason.substring(0, 10).toUpperCase().split('').join('<br>');
                                     rowHTML += `<td rowspan="${roster.length}" style="background-color: #fef08a; color: #4f46e5; font-weight: 700; text-align: center; font-size: 0.65rem; line-height: 1.2; padding: 2px 0; word-break: break-all; vertical-align: middle;" title="${reason}">${stackedReason}</td>`;
                                 }
@@ -408,9 +412,10 @@
                     `;
                     weekDates.forEach((col, colIdx) => {
                         const record = history[col.key];
-                        if (record && record.isHoliday) {
-                            const shortReason = (record.holidayReason || "HOL").substring(0, 3).toUpperCase();
-                            totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: #4f46e5; text-align: center; font-size: 0.6rem;" title="${record.holidayReason || 'Holiday'}">${shortReason}</td>`;
+                        const globalHol = globalHolidays.find(h => h.date === col.key);
+                        if ((record && record.isHoliday) || globalHol) {
+                            const shortReason = ((globalHol && globalHol.reason) ? globalHol.reason : (record && record.holidayReason ? record.holidayReason : "HOL")).substring(0, 3).toUpperCase();
+                            totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: #4f46e5; text-align: center; font-size: 0.6rem;" title="${(globalHol && globalHol.reason) || (record && record.holidayReason) || 'Holiday'}">${shortReason}</td>`;
                         } else {
                             totalsHTML += `<td style="text-align: center;">${presenteesPerDay[colIdx]}</td>`;
                         }

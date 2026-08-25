@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Show back to admin button if admin
+    if (typeof authManager !== 'undefined' && authManager.user && authManager.user.role === 'admin') {
+        const backBtn = document.getElementById('back-to-admin-btn');
+        if (backBtn) backBtn.style.display = 'inline-block';
+    }
+
     // Handle Android Back Gesture from Admin Portal
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('from') === 'admin') {
@@ -95,6 +101,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     attendanceHistory = JSON.parse(localStorage.getItem('attendance_history')) || {};
     // Migrate legacy attendanceHistory entries
+    let needsSave = false;
+    Object.keys(attendanceHistory).forEach(dateKey => {
+        if (dateKey.endsWith('_AM') || dateKey.endsWith('_PM')) {
+            const baseDate = dateKey.split('_')[0];
+            if (!attendanceHistory[baseDate]) {
+                attendanceHistory[baseDate] = attendanceHistory[dateKey];
+            }
+            delete attendanceHistory[dateKey];
+            needsSave = true;
+        }
+    });
+    if (needsSave) localStorage.setItem('attendance_history', JSON.stringify(attendanceHistory));
+
     Object.keys(attendanceHistory).forEach(dateKey => {
         const entry = attendanceHistory[dateKey];
         if (entry && !entry.hasOwnProperty('isHoliday')) {
@@ -113,6 +132,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const localMM = String(todayObj.getMonth() + 1).padStart(2, '0');
     const localDD = String(todayObj.getDate()).padStart(2, '0');
     let selectedDate = `${localYYYY}-${localMM}-${localDD}`;
+    
+    function getHistoryKey() {
+        return selectedDate;
+    }
 
     // Helper to get active holiday object if any
     function getActiveHoliday() {
@@ -129,8 +152,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Helper to get roster with state for selected date
     function getStudents() {
-        const entry = attendanceHistory[selectedDate] || {};
-        const attendanceMap = entry.attendance || {};
+        const key = getHistoryKey();
+        let entry = attendanceHistory[key] || {};
+        
+        const attendanceMap = entry.attendance || (entry.isHoliday !== undefined ? {} : entry);
         return roster.map(student => ({
             ...student,
             status: entry.isHoliday ? 'present' : (attendanceMap[student.rollNo] || 'present')
@@ -139,16 +164,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Helper to save a student status
     function setStudentStatus(rollNo, status) {
-        if (!attendanceHistory[selectedDate]) {
-            attendanceHistory[selectedDate] = { isHoliday: false, attendance: {} };
-        } else if (!attendanceHistory[selectedDate].attendance) {
-            const legacyMap = { ...attendanceHistory[selectedDate] };
-            attendanceHistory[selectedDate] = {
+        const key = getHistoryKey();
+        if (!attendanceHistory[key]) {
+            attendanceHistory[key] = { isHoliday: false, attendance: {} };
+        } else if (attendanceHistory[key].isHoliday === undefined && !attendanceHistory[key].attendance) {
+            const legacyMap = { ...attendanceHistory[key] };
+            attendanceHistory[key] = {
                 isHoliday: false,
                 attendance: legacyMap
             };
         }
-        attendanceHistory[selectedDate].attendance[rollNo] = status;
+        
+        // Ensure attendance object exists
+        if (!attendanceHistory[key].attendance) attendanceHistory[key].attendance = {};
+        attendanceHistory[key].attendance[rollNo] = status;
         saveState();
     }
 
@@ -156,7 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const gridContainer = document.getElementById('students-grid-container');
     const absentMessageBox = document.getElementById('absent-message-box');
     const copyMessageBtn = document.getElementById('copy-message-btn');
-    const absentMessageFormat = document.getElementById('absent-message-format');
     const totalCountEl = document.getElementById('total-count');
     const presentCountEl = document.getElementById('present-count');
     const absentCountEl = document.getElementById('absent-count');
@@ -450,7 +478,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const total = activeStudents.length;
         const absentCount = absentees.length;
         const presentCount = total - absentCount;
-        const sessionVal = absentMessageFormat.value.toUpperCase();
         
         const rollSuffixes = absentees.map(s => {
             const suffix = s.rollNo.slice(-2);
@@ -458,15 +485,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return suffix;
         }).join(', ');
 
-        const messageText = `${currentClassName}\n${formattedDate} ${sessionVal} Absentees :\n\n${rollSuffixes || 'None'}\n\nAbsent - ${absentCount}\nPresent - ${presentCount}\nTotal - ${total}`;
+        const messageText = `${currentClassName}\n${formattedDate} Absentees :\n\n${rollSuffixes || 'None'}\n\nAbsent - ${absentCount}\nPresent - ${presentCount}\nTotal - ${total}`;
         absentMessageBox.value = messageText;
         copyMessageBtn.disabled = false;
     }
-
-    // Format selection trigger re-generation
-    absentMessageFormat.addEventListener('change', () => {
-        renderAbsenteesList();
-    });
 
     // Copy to clipboard handler
     copyMessageBtn.addEventListener('click', () => {
@@ -492,7 +514,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Mark All Actions
     markAllPresentBtn.addEventListener('click', () => {
-        attendanceHistory[selectedDate] = {};
+        attendanceHistory[getHistoryKey()] = { isHoliday: false, attendance: {} };
         saveState();
         updateStats();
         renderRoster();
@@ -501,11 +523,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     markAllAbsentBtn.addEventListener('click', () => {
-        if (!attendanceHistory[selectedDate]) {
-            attendanceHistory[selectedDate] = {};
-        }
+        const key = getHistoryKey();
+        attendanceHistory[key] = { isHoliday: false, attendance: {} };
         roster.forEach(s => {
-            attendanceHistory[selectedDate][s.rollNo] = 'absent';
+            attendanceHistory[key].attendance[s.rollNo] = 'absent';
         });
         saveState();
         updateStats();
@@ -668,26 +689,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
         emptyHistoryState.style.display = 'none';
         historyLogList.style.display = 'grid';
-
-        dates.forEach(dateStr => {
-            const dateRecord = attendanceHistory[dateStr] || {};
-            const isHoliday = dateRecord.isHoliday;
+        Object.keys(attendanceHistory).sort().reverse().forEach(keyStr => {
+            const entry = attendanceHistory[keyStr];
+            let dateStr = keyStr;
             
-            // Format YYYY-MM-DD to DD/MM/YYYY
-            const [y, m, d] = dateStr.split('-');
-            const displayDate = `${d}/${m}/${y}`;
+            // Should no longer hit this after migration, but fallback just in case
+            if (keyStr.includes('_')) {
+                const parts = keyStr.split('_');
+                dateStr = parts[0];
+            }
+            
+            // Support legacy boolean logic for 'isHoliday'
+            const isHol = (typeof entry === 'object' && entry !== null && entry.isHoliday) || false;
+            const attendanceMap = isHol ? {} : (entry.attendance ? entry.attendance : entry);
+
+            const [year, month, day] = dateStr.split('-');
+            const displayDate = `${day}/${month}/${year}`;
 
             // Get absentees list
-            const attendanceMap = dateRecord.attendance || {};
-            const absentees = roster.filter(student => !isHoliday && attendanceMap[student.rollNo] === 'absent');
+            const absentees = roster.filter(student => !isHol && attendanceMap[student.rollNo] === 'absent');
             absentees.sort((a, b) => a.rollNo.localeCompare(b.rollNo));
             
             let absentListStr = "";
             let percentageHTML = "";
             let statsText = "";
 
-            if (isHoliday) {
-                absentListStr = `<span style="color: var(--primary); font-weight: 700;">🌴 Holiday: ${dateRecord.holidayReason || 'School Holiday'}</span>`;
+            if (isHol) {
+                absentListStr = `<span style="color: var(--primary); font-weight: 700;">🌴 Holiday: ${entry.holidayReason || 'School Holiday'}</span>`;
                 percentageHTML = `<span style="font-size: 0.85rem; font-weight: 700; color: var(--primary);">Holiday</span>`;
                 statsText = `<span>School Holiday Mode</span>`;
             } else {
@@ -714,8 +742,8 @@ document.addEventListener('DOMContentLoaded', () => {
             card.style.flexDirection = 'column';
             card.style.gap = '0.5rem';
             card.style.transition = 'var(--transition)';
-            card.style.border = dateStr === selectedDate ? '1px solid var(--primary)' : '1px solid var(--card-border)';
-            card.style.background = dateStr === selectedDate ? 'var(--primary-light)' : 'var(--card-bg)';
+            card.style.border = keyStr === getHistoryKey() ? '1px solid var(--primary)' : '1px solid var(--card-border)';
+            card.style.background = keyStr === getHistoryKey() ? 'var(--primary-light)' : 'var(--card-bg)';
             
             card.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -737,8 +765,10 @@ document.addEventListener('DOMContentLoaded', () => {
             card.addEventListener('click', (e) => {
                 // If clicked trash button, don't trigger date load
                 if (e.target.closest('.delete-log-btn')) return;
+                
                 selectedDate = dateStr;
                 datePicker.value = selectedDate;
+                
                 updateStats();
                 renderRoster();
                 renderAbsenteesList();
@@ -749,9 +779,9 @@ document.addEventListener('DOMContentLoaded', () => {
             card.querySelector('.delete-log-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (confirm(`Are you sure you want to delete the attendance log for ${displayDate}?`)) {
-                    delete attendanceHistory[dateStr];
+                    delete attendanceHistory[keyStr];
                     saveState();
-                    if (dateStr === selectedDate) {
+                    if (keyStr === getHistoryKey()) {
                         updateStats();
                         renderRoster();
                         renderAbsenteesList();
