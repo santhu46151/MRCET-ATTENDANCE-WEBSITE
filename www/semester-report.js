@@ -234,6 +234,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const avg = roster.length > 0 ? Math.round(totalClassPercentSum / roster.length) : 0;
         summaryAveragePercent.textContent = `${avg}%`;
         summaryAveragePercent.style.color = avg >= 75 ? 'var(--success)' : 'var(--danger)';
+
+        const breakdownHeader = document.querySelector('#report-content h2');
+        if (breakdownHeader && classSelect && classSelect.options[classSelect.selectedIndex]) {
+            breakdownHeader.innerHTML = `<i class="fas fa-users"></i> Student Breakdown - ${classSelect.options[classSelect.selectedIndex].text}`;
+        }
     }
 
     function exportToCSV() {
@@ -318,13 +323,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // 4. Department Name
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        text = "DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING (DATA SCIENCE)";
+        const [year, sec, dept] = classInfo.split('_');
+        const deptTitle = (dept === 'DS' || dept === 'DATA SCIENCE')
+            ? "DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING (DATA SCIENCE)"
+            : `DEPARTMENT OF ${dept}`;
+        text = deptTitle;
         textWidth = doc.getTextWidth(text);
         doc.text(text, (pageWidth - textWidth) / 2, 54);
 
         // 5. Report Title
         doc.setFontSize(12);
-        const [year, sec, dept] = classInfo.split('_');
         text = `SEMESTER ATTENDANCE REPORT - ${start} to ${end} (SECTION: ${year}-${sec.replace('Sec','')})`;
         textWidth = doc.getTextWidth(text);
         doc.text(text, (pageWidth - textWidth) / 2, 62);

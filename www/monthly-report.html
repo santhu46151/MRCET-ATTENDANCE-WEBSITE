@@ -257,6 +257,56 @@
             const currentMM = String(initialDate.getMonth() + 1).padStart(2, '0');
             monthPicker.value = `${currentYYYY}-${currentMM}`;
 
+            // Function to resolve current section info dynamically
+            function getSectionDetails() {
+                let className = localStorage.getItem('current_class_name');
+                let year = localStorage.getItem('current_class_year');
+                let section = localStorage.getItem('current_class_section');
+                let dept = localStorage.getItem('current_class_dept');
+                let branch = localStorage.getItem('current_class_branch');
+
+                let authUser = null;
+                try {
+                    authUser = (typeof authManager !== 'undefined' && authManager.user) ? authManager.user : JSON.parse(localStorage.getItem('authUser') || 'null');
+                } catch(e) {}
+
+                if (authUser) {
+                    if (!section && authUser.section) section = authUser.section;
+                    if (!year && authUser.year) year = authUser.year;
+                }
+
+                if (className) {
+                    const parts = className.split('/');
+                    if (parts.length >= 4) {
+                        year = year || parts[0];
+                        branch = branch || parts[1];
+                        dept = dept || parts[2];
+                        section = section || parts[3];
+                    }
+                }
+
+                year = year || 'IV';
+                section = section || 'D';
+                dept = dept || 'DS';
+                branch = branch || 'CSE';
+
+                const formattedSection = `SECTION ${year} - ${section}`;
+                const formattedCode = `${year}-${section}`;
+                const deptTitle = (dept === 'DS' || dept === 'DATA SCIENCE')
+                    ? 'DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING (DATA SCIENCE)'
+                    : `DEPARTMENT OF ${dept}`;
+
+                return {
+                    year,
+                    section,
+                    dept,
+                    branch,
+                    formattedSection,
+                    formattedCode,
+                    deptTitle
+                };
+            }
+
             // Load Data from LocalStorage (synced by auth/sync manager API)
             let roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
             let history = JSON.parse(localStorage.getItem('attendance_history')) || {};
@@ -306,6 +356,8 @@
             }
 
             function buildMonthlyGrid() {
+                const secDetails = getSectionDetails();
+                document.title = `Monthly Attendance Report - ${secDetails.formattedSection}`;
                 const reportsContainer = document.getElementById('reports-container');
                 reportsContainer.innerHTML = '';
 
@@ -441,10 +493,10 @@
                     </div>
 
                     <div class="report-subtitle">
-                        DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING (DATA SCIENCE)
+                        ${secDetails.deptTitle}
                     </div>
                     <div class="section-badge">
-                        MONTHLY ATTENDANCE REGISTER - ${getMonthName(monthIndex).toUpperCase()} ${selectedYear} (SECTION: IV-D)
+                        MONTHLY ATTENDANCE REGISTER - ${getMonthName(monthIndex).toUpperCase()} ${selectedYear} (${secDetails.formattedSection})
                     </div>
 
                     <div style="width: 100%; overflow-x: auto; overscroll-behavior-x: none; touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; margin-top: 1rem;">
@@ -491,8 +543,9 @@
                 const monthName = getMonthName(selectedMonth - 1);
 
                 // Convert HTML table to Worksheet
+                const secDetails = getSectionDetails();
                 const wb = XLSX.utils.table_to_book(table, { raw: true });
-                XLSX.writeFile(wb, `Monthly_Attendance_Report_${monthName}_${selectedYear}.xlsx`);
+                XLSX.writeFile(wb, `Monthly_Attendance_Report_${secDetails.formattedCode}_${monthName}_${selectedYear}.xlsx`);
             });
 
             // Export to PDF logic

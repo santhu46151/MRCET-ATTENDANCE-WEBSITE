@@ -282,6 +282,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (className) {
             currentClassName = className;
+            localStorage.setItem('current_class_name', className);
+            const parts = className.split('/');
+            if (parts.length >= 4) {
+                localStorage.setItem('current_class_year', parts[0]);
+                localStorage.setItem('current_class_branch', parts[1]);
+                localStorage.setItem('current_class_dept', parts[2]);
+                localStorage.setItem('current_class_section', parts[3]);
+            }
         }
         
         // Re-render UI

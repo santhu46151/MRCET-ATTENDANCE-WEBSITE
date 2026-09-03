@@ -95,11 +95,17 @@ document.addEventListener('DOMContentLoaded', () => {
             unsubscribeSnapshot = docRef.onSnapshot((doc) => {
                 if (doc.exists) {
                     const data = doc.data();
+                    const branchStr = data.branch || 'CSE';
+                    const deptStr = data.department || 'DS';
+                    const fullClassName = `${data.year}/${branchStr}/${deptStr}/${data.section}`;
+                    localStorage.setItem('current_class_name', fullClassName);
+                    localStorage.setItem('current_class_year', data.year || '');
+                    localStorage.setItem('current_class_section', data.section || '');
+                    localStorage.setItem('current_class_dept', deptStr);
+                    localStorage.setItem('current_class_branch', branchStr);
                     if (typeof window.applyRemoteState === 'function') {
                         // Pass the className to app.js
-                        const branchStr = data.branch || 'CSE';
-                        const deptStr = data.department || 'DS';
-                        window.applyRemoteState(data.roster, data.history || {}, `${data.year}/${branchStr}/${deptStr}/${data.section}`);
+                        window.applyRemoteState(data.roster, data.history || {}, fullClassName);
                     }
                     if (syncDot) {
                         syncDot.style.backgroundColor = '#10b981';
