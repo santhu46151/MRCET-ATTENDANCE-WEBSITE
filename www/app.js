@@ -133,8 +133,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const localDD = String(todayObj.getDate()).padStart(2, '0');
     let selectedDate = `${localYYYY}-${localMM}-${localDD}`;
     
+    let selectedPeriod = "1";
+    
+    window.getCurrentClassId = function() {
+        const classDropdown = document.getElementById('class-dropdown');
+        if (classDropdown && classDropdown.value) {
+            return classDropdown.value;
+        }
+        if (window.currentClassId) return window.currentClassId;
+        return localStorage.getItem('current_class_id') || "IV_A";
+    };
+
+    window.getCurrentTimetable = function() {
+        const classId = window.getCurrentClassId();
+
+        // 1. In-memory currentTimetable (from Firestore snapshot or live update)
+        if (window.currentTimetable && Object.keys(window.currentTimetable).length > 0 && (!window.currentTimetableClassId || window.currentTimetableClassId === classId)) {
+            return window.currentTimetable;
+        }
+
+        // 2. LocalStorage custom_timetables (critical for newly uploaded or edited classes like III_A!)
+        try {
+            const customTt = JSON.parse(localStorage.getItem('custom_timetables') || '{}');
+            if (customTt[classId] && customTt[classId].schedule && Object.keys(customTt[classId].schedule).length > 0) {
+                window.currentTimetable = customTt[classId].schedule;
+                window.currentTimetableClassId = classId;
+                return customTt[classId].schedule;
+            }
+        } catch (e) {}
+
+        // 3. Official Timetables dataset
+        if (window.OFFICIAL_TIMETABLES && window.OFFICIAL_TIMETABLES[classId] && window.OFFICIAL_TIMETABLES[classId].schedule) {
+            return window.OFFICIAL_TIMETABLES[classId].schedule;
+        }
+
+        return {};
+    };
+
     function getHistoryKey() {
-        return selectedDate;
+        const classId = window.getCurrentClassId();
+        return `${classId}_${selectedDate}_P${selectedPeriod}`;
+    }
+
+    function getHistoryEntry() {
+        const classId = window.getCurrentClassId();
+        const fullKey = `${classId}_${selectedDate}_P${selectedPeriod}`;
+        if (attendanceHistory[fullKey]) return attendanceHistory[fullKey];
+        const legacyKey = `${selectedDate}_P${selectedPeriod}`;
+        if (attendanceHistory[legacyKey]) return attendanceHistory[legacyKey];
+        return null;
     }
 
     // Helper to get active holiday object if any
@@ -152,9 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Helper to get roster with state for selected date
     function getStudents() {
-        const key = getHistoryKey();
-        let entry = attendanceHistory[key] || {};
-        
+        const entry = getHistoryEntry() || {};
         const attendanceMap = entry.attendance || (entry.isHoliday !== undefined ? {} : entry);
         return roster.map(student => ({
             ...student,
@@ -166,18 +211,28 @@ document.addEventListener('DOMContentLoaded', () => {
     function setStudentStatus(rollNo, status) {
         const key = getHistoryKey();
         if (!attendanceHistory[key]) {
-            attendanceHistory[key] = { isHoliday: false, attendance: {} };
-        } else if (attendanceHistory[key].isHoliday === undefined && !attendanceHistory[key].attendance) {
-            const legacyMap = { ...attendanceHistory[key] };
-            attendanceHistory[key] = {
-                isHoliday: false,
-                attendance: legacyMap
-            };
+            const existingEntry = getHistoryEntry();
+            if (existingEntry && existingEntry.attendance) {
+                attendanceHistory[key] = {
+                    isHoliday: false,
+                    attendance: { ...existingEntry.attendance }
+                };
+            } else {
+                attendanceHistory[key] = { isHoliday: false, attendance: {} };
+            }
         }
         
         // Ensure attendance object exists
         if (!attendanceHistory[key].attendance) attendanceHistory[key].attendance = {};
         attendanceHistory[key].attendance[rollNo] = status;
+        
+        // Save subject metadata
+        if (window.currentSubjectInfo) {
+            attendanceHistory[key].subjectName = window.currentSubjectInfo.subjectName;
+            attendanceHistory[key].subjectCode = window.currentSubjectInfo.subjectCode;
+            attendanceHistory[key].faculty = window.currentSubjectInfo.faculty;
+        }
+
         saveState();
     }
 
@@ -304,6 +359,360 @@ document.addEventListener('DOMContentLoaded', () => {
         renderRoster();
         renderAbsenteesList();
         renderHistoryLogs();
+    };
+
+    // Notification Toast Helper
+    window.showNotificationToast = (msg, type = 'info') => {
+        const toast = document.getElementById('copy-notification-banner');
+        if (!toast) return;
+        toast.style.display = 'flex';
+        toast.style.alignItems = 'center';
+        toast.style.justifyContent = 'space-between';
+        toast.style.gap = '0.75rem';
+        if (type === 'success') {
+            toast.style.background = 'rgba(16, 185, 129, 0.15)';
+            toast.style.color = 'var(--success)';
+            toast.style.border = '1px solid rgba(16, 185, 129, 0.35)';
+            toast.innerHTML = `<span><i class="fas fa-check-circle" style="margin-right: 0.4rem;"></i>${msg}</span><button onclick="this.parentElement.style.display='none'" style="background:none; border:none; color:inherit; cursor:pointer; font-size: 0.9rem;"><i class="fas fa-times"></i></button>`;
+        } else {
+            toast.style.background = 'rgba(99, 102, 241, 0.15)';
+            toast.style.color = 'var(--primary)';
+            toast.style.border = '1px solid rgba(99, 102, 241, 0.35)';
+            toast.innerHTML = `<span><i class="fas fa-info-circle" style="margin-right: 0.4rem;"></i>${msg}</span><button onclick="this.parentElement.style.display='none'" style="background:none; border:none; color:inherit; cursor:pointer; font-size: 0.9rem;"><i class="fas fa-times"></i></button>`;
+        }
+        clearTimeout(window.toastTimer);
+        window.toastTimer = setTimeout(() => {
+            if (toast) toast.style.display = 'none';
+        }, 5500);
+    };
+
+    window.triggerTimetableUpdate = () => {
+        // Find subject based on day and period
+        const [y, m, d] = selectedDate.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const dayName = daysOfWeek[dateObj.getDay()];
+        
+        const scheduleContainer = document.getElementById('daily-schedule-container');
+        const scheduleTitle = document.getElementById('daily-schedule-title');
+        const scheduleCount = document.getElementById('daily-schedule-count');
+        const activeBanner = document.getElementById('active-subject-banner');
+        const copyPrevBtn = document.getElementById('copy-prev-attendance');
+        const nextPeriodBtn = document.getElementById('btn-next-period');
+        
+        const classId = window.getCurrentClassId();
+        const currentSchedule = window.getCurrentTimetable();
+        let classNameDisplay = classId.replace('_', ' ');
+        try {
+            const customTt = JSON.parse(localStorage.getItem('custom_timetables') || '{}');
+            if (customTt[classId] && customTt[classId].className) {
+                classNameDisplay = customTt[classId].className;
+            }
+        } catch (e) {}
+        if (window.OFFICIAL_TIMETABLES && window.OFFICIAL_TIMETABLES[classId] && window.OFFICIAL_TIMETABLES[classId].className) {
+            classNameDisplay = window.OFFICIAL_TIMETABLES[classId].className;
+        }
+
+        if (scheduleTitle) {
+            scheduleTitle.innerHTML = `<i class="fas fa-calendar-day" style="color: var(--primary); margin-right: 0.35rem;"></i><strong style="color: var(--text-primary);">${classNameDisplay}</strong> • Timetable for ${dayName} (${selectedDate}):`;
+        }
+
+        window.currentSubjectInfo = null;
+
+        // Case-insensitive day match in currentSchedule
+        const dayKey = Object.keys(currentSchedule || {}).find(
+            k => k.toLowerCase() === dayName.toLowerCase()
+        );
+        const daySchedule = dayKey ? currentSchedule[dayKey] : null;
+
+        if (daySchedule && Object.keys(daySchedule).length > 0) {
+            const periods = Object.keys(daySchedule).sort((a,b) => parseInt(a) - parseInt(b));
+            
+            if (periods.length > 0) {
+                // If selectedPeriod is not in this day's periods, default to first period
+                if (!periods.includes(selectedPeriod)) {
+                    selectedPeriod = periods[0];
+                }
+                
+                const info = daySchedule[selectedPeriod];
+                window.currentSubjectInfo = info;
+                
+                const currentIndex = periods.indexOf(selectedPeriod);
+                const prevP = currentIndex > 0 ? periods[currentIndex - 1] : null;
+                const nextP = currentIndex < periods.length - 1 ? periods[currentIndex + 1] : null;
+                window.previousPeriodToCopy = prevP;
+
+                // Count how many periods are marked vs pending
+                let markedCount = 0;
+                periods.forEach(p => {
+                    const pKey = `${classId}_${selectedDate}_P${p}`;
+                    const legacyPKey = `${selectedDate}_P${p}`;
+                    const rec = attendanceHistory[pKey] || attendanceHistory[legacyPKey];
+                    if (rec && rec.attendance && Object.keys(rec.attendance).length > 0) {
+                        markedCount++;
+                    }
+                });
+
+                if (scheduleCount) {
+                    scheduleCount.innerHTML = `<span style="color: var(--success);"><i class="fas fa-check-circle"></i> ${markedCount} Marked</span> • <span style="color: var(--text-muted);">${periods.length - markedCount} Pending</span>`;
+                }
+
+                // Active Period Attendance State
+                const currentEntry = getHistoryEntry();
+                const hasCurrentAttendance = currentEntry && 
+                    currentEntry.attendance && 
+                    Object.keys(currentEntry.attendance).length > 0;
+
+                if (activeBanner) {
+                    if (info) {
+                        activeBanner.style.display = 'block';
+                        activeBanner.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                                        <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; color: var(--primary);">
+                                            Active Period ${selectedPeriod}
+                                        </span>
+                                        ${hasCurrentAttendance 
+                                            ? '<span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(16, 185, 129, 0.2); color: var(--success); font-weight: 700;"><i class="fas fa-check"></i> Attendance Marked</span>' 
+                                            : '<span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(245, 158, 11, 0.2); color: var(--warning); font-weight: 700;"><i class="far fa-clock"></i> Not Yet Marked</span>'}
+                                    </div>
+                                    <div style="font-size: 1.08rem; font-weight: 800; color: var(--text-primary);">
+                                        <i class="fas fa-book-reader" style="color: var(--primary); margin-right: 0.4rem;"></i>${info.subjectName}
+                                        <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-left: 0.35rem;">(${info.subjectCode || 'Core'})</span>
+                                    </div>
+                                    <div style="display: flex; gap: 1rem; align-items: center; font-size: 0.82rem; margin-top: 0.3rem; color: var(--text-secondary); flex-wrap: wrap;">
+                                        <div><i class="fas fa-user-tie" style="color: var(--info); margin-right: 0.3rem;"></i><strong>Faculty:</strong> ${info.faculty || 'Not Assigned'}</div>
+                                        <div><i class="far fa-clock" style="color: var(--success); margin-right: 0.3rem;"></i><strong>Time:</strong> Period ${selectedPeriod} (${info.startTime} - ${info.endTime})</div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                    ${prevP ? `
+                                        <button class="btn btn-outline" style="font-size: 0.8rem; padding: 0.35rem 0.75rem; color: var(--info); border-color: var(--info);" onclick="copyAttendanceFromPeriod('${prevP}')" title="Copy attendance from Period ${prevP}">
+                                            <i class="fas fa-copy"></i> Copy P${prevP} Attendance
+                                        </button>
+                                    ` : ''}
+                                    ${nextP ? `
+                                        <button class="btn btn-primary" style="font-size: 0.82rem; padding: 0.4rem 0.9rem; font-weight: 700; background: linear-gradient(135deg, var(--primary), #818cf8); border: none;" onclick="goToNextSubject()" title="Save Period ${selectedPeriod} and proceed to Period ${nextP}">
+                                            <i class="fas fa-forward"></i> Next Subject (P${nextP})
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        activeBanner.style.display = 'none';
+                    }
+                }
+                
+                if (scheduleContainer) {
+                    let html = '';
+                    periods.forEach(p => {
+                        const isSelected = p === selectedPeriod;
+                        const pInfo = daySchedule[p];
+                        const pKey = `${classId}_${selectedDate}_P${p}`;
+                        const legacyPKey = `${selectedDate}_P${p}`;
+                        const rec = attendanceHistory[pKey] || attendanceHistory[legacyPKey];
+                        const isMarked = rec && rec.attendance && Object.keys(rec.attendance).length > 0;
+                        
+                        let statusPill = '';
+                        if (isMarked) {
+                            const att = rec.attendance;
+                            const absCount = Object.values(att).filter(v => v === 'absent').length;
+                            statusPill = `<span style="font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgba(16, 185, 129, 0.2); color: var(--success);"><i class="fas fa-check"></i> Marked (${absCount} abs)</span>`;
+                        } else {
+                            statusPill = `<span style="font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: rgba(245, 158, 11, 0.15); color: var(--warning);"><i class="far fa-clock"></i> Pending</span>`;
+                        }
+
+                        const cardStyle = isSelected 
+                            ? 'background: var(--primary); color: #ffffff; border: 2px solid var(--primary); box-shadow: 0 4px 14px rgba(79, 70, 229, 0.45); transform: translateY(-2px);' 
+                            : 'background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--card-border);';
+                        
+                        html += `
+                            <button class="btn period-btn" style="min-width: 170px; padding: 0.55rem 0.85rem; border-radius: var(--radius-md); cursor: pointer; transition: var(--transition); display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 0.25rem; ${cardStyle}" onclick="selectPeriod('${p}')" title="Period ${p}: ${pInfo.subjectName} (${pInfo.faculty})">
+                                <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 0.4rem;">
+                                    <span style="font-weight: 800; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: ${isSelected ? '0.95' : '0.8'};">Period ${p}</span>
+                                    ${statusPill}
+                                </div>
+                                <span style="font-weight: 800; font-size: 0.9rem; line-height: 1.25; word-break: break-word;">${pInfo.subjectName}</span>
+                                <div style="display: flex; width: 100%; justify-content: space-between; align-items: center; font-size: 0.72rem; opacity: ${isSelected ? '0.95' : '0.75'}; margin-top: 0.15rem;">
+                                    <span><i class="far fa-clock"></i> ${pInfo.startTime}-${pInfo.endTime}</span>
+                                    <span style="font-weight: 600;">${pInfo.subjectCode || 'Core'}</span>
+                                </div>
+                            </button>
+                        `;
+                    });
+                    scheduleContainer.innerHTML = html;
+                    scheduleContainer.style.display = 'flex';
+                }
+                
+                // Toolbar Buttons logic
+                if (copyPrevBtn) {
+                    if (prevP) {
+                        copyPrevBtn.style.display = 'inline-flex';
+                        copyPrevBtn.innerHTML = `<i class="fas fa-copy"></i> Copy P${prevP} Attendance`;
+                    } else {
+                        copyPrevBtn.style.display = 'none';
+                    }
+                }
+
+                if (nextPeriodBtn) {
+                    if (nextP) {
+                        nextPeriodBtn.style.display = 'inline-flex';
+                        nextPeriodBtn.innerHTML = `<i class="fas fa-forward"></i> Next Subject (P${nextP})`;
+                    } else {
+                        nextPeriodBtn.style.display = 'none';
+                    }
+                }
+            } else {
+                if (scheduleCount) scheduleCount.innerHTML = '';
+                if (activeBanner) activeBanner.style.display = 'none';
+                if (scheduleContainer) {
+                    scheduleContainer.innerHTML = '<span style="font-size: 0.85rem; color: var(--text-muted); padding: 0.5rem 0;">No classes scheduled for this day in timetable.</span>';
+                    scheduleContainer.style.display = 'block';
+                }
+                if (copyPrevBtn) copyPrevBtn.style.display = 'none';
+                if (nextPeriodBtn) nextPeriodBtn.style.display = 'none';
+            }
+        } else {
+            if (scheduleCount) scheduleCount.innerHTML = '';
+            if (activeBanner) activeBanner.style.display = 'none';
+            if (scheduleContainer) {
+                if (dayName === 'Sunday') {
+                    scheduleContainer.innerHTML = '<span style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted); padding: 0.5rem 0;"><i class="fas fa-coffee" style="color: var(--warning); margin-right: 0.4rem;"></i>Sunday - College closed.</span>';
+                } else {
+                    scheduleContainer.innerHTML = `<span style="font-size: 0.88rem; color: var(--text-muted); padding: 0.5rem 0;"><i class="fas fa-info-circle" style="color: var(--info); margin-right: 0.4rem;"></i>No timetable uploaded for ${dayName}. Upload timetable in Admin Portal.</span>`;
+                }
+                scheduleContainer.style.display = 'block';
+            }
+            if (copyPrevBtn) copyPrevBtn.style.display = 'none';
+            if (nextPeriodBtn) nextPeriodBtn.style.display = 'none';
+        }
+        
+        updateStats();
+        renderRoster();
+        renderAbsenteesList();
+        renderHistoryLogs();
+    };
+    
+    // Select Period & Auto-Copy Previous Attendance to Next Subject
+    window.selectPeriod = function(p, options = {}) {
+        const targetPeriod = String(p);
+        selectedPeriod = targetPeriod;
+
+        const classId = window.getCurrentClassId();
+        const currentSchedule = window.getCurrentTimetable();
+
+        // Auto-copy previous attendance if target period has NO attendance recorded yet
+        const targetKey = getHistoryKey();
+        const targetEntry = getHistoryEntry();
+        const targetHasAttendance = targetEntry && 
+            targetEntry.attendance && 
+            Object.keys(targetEntry.attendance).length > 0;
+
+        if (!targetHasAttendance && !options.skipAutoCopy) {
+            const [y, m, d] = selectedDate.split('-').map(Number);
+            const dateObj = new Date(y, m - 1, d);
+            const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const dayName = daysOfWeek[dateObj.getDay()];
+            
+            const dayKey = Object.keys(currentSchedule || {}).find(
+                k => k.toLowerCase() === dayName.toLowerCase()
+            );
+            const daySchedule = dayKey ? currentSchedule[dayKey] : null;
+
+            if (daySchedule) {
+                const periods = Object.keys(daySchedule).sort((a,b) => parseInt(a) - parseInt(b));
+                const targetIdx = periods.indexOf(targetPeriod);
+                
+                // Find most recent marked period earlier today
+                let sourcePeriod = null;
+                let sourceRecord = null;
+                for (let i = targetIdx - 1; i >= 0; i--) {
+                    const checkKey = `${classId}_${selectedDate}_P${periods[i]}`;
+                    const legacyKey = `${selectedDate}_P${periods[i]}`;
+                    const rec = attendanceHistory[checkKey] || attendanceHistory[legacyKey];
+                    if (rec && rec.attendance && Object.keys(rec.attendance).length > 0) {
+                        sourcePeriod = periods[i];
+                        sourceRecord = rec;
+                        break;
+                    }
+                }
+
+                if (sourcePeriod && sourceRecord) {
+                    const pInfo = daySchedule[targetPeriod] || {};
+
+                    attendanceHistory[targetKey] = {
+                        isHoliday: false,
+                        attendance: { ...sourceRecord.attendance },
+                        subjectName: pInfo.subjectName || 'Subject',
+                        subjectCode: pInfo.subjectCode || 'Core',
+                        faculty: pInfo.faculty || 'Faculty',
+                        autoCopiedFrom: sourcePeriod
+                    };
+
+                    saveState();
+                    window.showNotificationToast(`Auto-copied attendance from Period ${sourcePeriod} (${sourceRecord.subjectName || ''}). Any modifications will save for Period ${targetPeriod}.`, 'success');
+                }
+            }
+        }
+
+        window.triggerTimetableUpdate();
+    };
+
+    // Manual Copy Attendance from a specific Period
+    window.copyAttendanceFromPeriod = function(sourceP) {
+        const classId = window.getCurrentClassId();
+        const sourceKey = `${classId}_${selectedDate}_P${sourceP}`;
+        const legacySourceKey = `${selectedDate}_P${sourceP}`;
+        const sourceRecord = attendanceHistory[sourceKey] || attendanceHistory[legacySourceKey];
+        if (!sourceRecord || !sourceRecord.attendance || Object.keys(sourceRecord.attendance).length === 0) {
+            alert(`No attendance data found in Period ${sourceP} to copy.`);
+            return;
+        }
+
+        const currentKey = getHistoryKey();
+        attendanceHistory[currentKey] = {
+            isHoliday: false,
+            attendance: { ...sourceRecord.attendance }
+        };
+        if (window.currentSubjectInfo) {
+            attendanceHistory[currentKey].subjectName = window.currentSubjectInfo.subjectName;
+            attendanceHistory[currentKey].subjectCode = window.currentSubjectInfo.subjectCode;
+            attendanceHistory[currentKey].faculty = window.currentSubjectInfo.faculty;
+        }
+        saveState();
+        updateStats();
+        renderRoster();
+        renderAbsenteesList();
+        renderHistoryLogs();
+        window.triggerTimetableUpdate();
+        window.showNotificationToast(`Copied attendance from Period ${sourceP} (${sourceRecord.subjectName || ''})!`, 'success');
+    };
+
+    // Save & Go to Next Subject in Timetable
+    window.goToNextSubject = function() {
+        saveState();
+        const [y, m, d] = selectedDate.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const dayName = daysOfWeek[dateObj.getDay()];
+        
+        const currentSchedule = window.getCurrentTimetable();
+        const dayKey = Object.keys(currentSchedule || {}).find(
+            k => k.toLowerCase() === dayName.toLowerCase()
+        );
+        const daySchedule = dayKey ? currentSchedule[dayKey] : null;
+        if (!daySchedule) return;
+
+        const periods = Object.keys(daySchedule).sort((a,b) => parseInt(a) - parseInt(b));
+        const currentIndex = periods.indexOf(selectedPeriod);
+        if (currentIndex < periods.length - 1) {
+            const nextPeriod = periods[currentIndex + 1];
+            window.selectPeriod(nextPeriod);
+        } else {
+            alert("This is the last scheduled period for today!");
+        }
     };
 
     window.setEmptyRosterState = function(message) {
@@ -522,7 +931,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Mark All Actions
     markAllPresentBtn.addEventListener('click', () => {
-        attendanceHistory[getHistoryKey()] = { isHoliday: false, attendance: {} };
+        const key = getHistoryKey();
+        attendanceHistory[key] = { isHoliday: false, attendance: {} };
+        if (window.currentSubjectInfo) {
+            attendanceHistory[key].subjectName = window.currentSubjectInfo.subjectName;
+            attendanceHistory[key].subjectCode = window.currentSubjectInfo.subjectCode;
+            attendanceHistory[key].faculty = window.currentSubjectInfo.faculty;
+        }
         saveState();
         updateStats();
         renderRoster();
@@ -530,9 +945,29 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistoryLogs();
     });
 
+    const copyPrevBtn = document.getElementById('copy-prev-attendance');
+    if (copyPrevBtn) {
+        copyPrevBtn.addEventListener('click', () => {
+            if (!window.previousPeriodToCopy) return;
+            window.copyAttendanceFromPeriod(window.previousPeriodToCopy);
+        });
+    }
+
+    const nextPeriodBtn = document.getElementById('btn-next-period');
+    if (nextPeriodBtn) {
+        nextPeriodBtn.addEventListener('click', () => {
+            window.goToNextSubject();
+        });
+    }
+
     markAllAbsentBtn.addEventListener('click', () => {
         const key = getHistoryKey();
         attendanceHistory[key] = { isHoliday: false, attendance: {} };
+        if (window.currentSubjectInfo) {
+            attendanceHistory[key].subjectName = window.currentSubjectInfo.subjectName;
+            attendanceHistory[key].subjectCode = window.currentSubjectInfo.subjectCode;
+            attendanceHistory[key].faculty = window.currentSubjectInfo.faculty;
+        }
         roster.forEach(s => {
             attendanceHistory[key].attendance[s.rollNo] = 'absent';
         });
@@ -702,8 +1137,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let dateStr = keyStr;
             
             // Should no longer hit this after migration, but fallback just in case
-            if (keyStr.includes('_')) {
+            if (keyStr.includes('_') && !keyStr.includes('_P')) {
                 const parts = keyStr.split('_');
+                dateStr = parts[0];
+            } else if (keyStr.includes('_P')) {
+                const parts = keyStr.split('_P');
                 dateStr = parts[0];
             }
             
@@ -713,6 +1151,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const [year, month, day] = dateStr.split('-');
             const displayDate = `${day}/${month}/${year}`;
+            let subjectInfo = '';
+            if (entry.subjectName) {
+                subjectInfo = ` | P${keyStr.split('_P')[1]} - ${entry.subjectName}`;
+            }
 
             // Get absentees list
             const absentees = roster.filter(student => !isHol && attendanceMap[student.rollNo] === 'absent');
@@ -755,7 +1197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             card.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-weight: 700; font-size: 1rem; color: var(--text-primary);"><i class="far fa-calendar-check" style="color: var(--primary); margin-right: 0.35rem;"></i>${displayDate}</span>
+                    <span style="font-weight: 700; font-size: 1rem; color: var(--text-primary);"><i class="far fa-calendar-check" style="color: var(--primary); margin-right: 0.35rem;"></i>${displayDate}${subjectInfo}</span>
                     ${percentageHTML}
                 </div>
                 <div style="font-size: 0.85rem; color: var(--text-secondary); word-break: break-all; min-height: 2.2rem; line-height: 1.3;">
@@ -777,10 +1219,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedDate = dateStr;
                 datePicker.value = selectedDate;
                 
-                updateStats();
-                renderRoster();
-                renderAbsenteesList();
-                renderHistoryLogs();
+                if (keyStr.includes('_P')) {
+                    const parts = keyStr.split('_P');
+                    selectedPeriod = parts[1];
+                }
+                
+                window.triggerTimetableUpdate();
             });
 
             // Delete Date Log
@@ -807,10 +1251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Date picker change event
     datePicker.addEventListener('change', (e) => {
         selectedDate = e.target.value;
-        updateStats();
-        renderRoster();
-        renderAbsenteesList();
-        renderHistoryLogs();
+        window.triggerTimetableUpdate();
     });
 
     // Clear all history
@@ -895,6 +1336,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Setup class-dropdown change listener
+    const classDropdownEl = document.getElementById('class-dropdown');
+    if (classDropdownEl) {
+        const savedClassId = localStorage.getItem('current_class_id');
+        if (savedClassId) {
+            classDropdownEl.value = savedClassId;
+        }
+        classDropdownEl.addEventListener('change', (e) => {
+            window.currentClassId = e.target.value;
+            window.currentTimetable = null;
+            window.currentTimetableClassId = null;
+            localStorage.setItem('current_class_id', e.target.value);
+            if (typeof window.switchClass === 'function') {
+                window.switchClass(e.target.value);
+            }
+            window.triggerTimetableUpdate();
+        });
+    }
+
     // Initialize App Render
     window.updateUI();
+    window.triggerTimetableUpdate();
 });

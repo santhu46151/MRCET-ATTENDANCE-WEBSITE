@@ -12,6 +12,7 @@
 
     <!-- App Configuration and Auth -->
     <script src="auth.js"></script>
+    <script src="timetable-data.js"></script>
     <style>
         /* Specific Styles for Excel Weekly Report */
         .report-wrapper {
@@ -182,9 +183,12 @@
 
     <div class="container" style="max-width: 1300px; padding-top: 1rem;">
         <!-- Breadcrumb Nav -->
-        <nav aria-label="Breadcrumb">
+        <nav aria-label="Breadcrumb" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <a href="index.html" class="back-nav" style="text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; color: var(--text-secondary);">
                 <i class="fas fa-arrow-left"></i> Back to Attendance Dashboard
+            </a>
+            <a href="subject-report.html" class="btn btn-primary" style="text-decoration: none; font-size: 0.85rem; padding: 0.4rem 0.8rem; background: var(--info); border-color: var(--info); color: #fff; border-radius: var(--radius-sm); display: inline-flex; align-items: center; gap: 0.4rem;">
+                <i class="fas fa-book"></i> Subject Report
             </a>
         </nav>
 
@@ -359,13 +363,48 @@
                 const reportsContainer = document.getElementById('reports-container');
                 reportsContainer.innerHTML = '';
 
+                // Helper to get daily record combining periods if needed
+                function getDayRecord(dateKey) {
+                    if (history[dateKey]) return history[dateKey];
+                    const periodKeys = Object.keys(history).filter(k => k.startsWith(dateKey + '_P'));
+                    if (periodKeys.length === 0) return null;
+                    
+                    const mergedAttendance = {};
+                    let isHoliday = false;
+                    let holidayReason = "";
+                    
+                    periodKeys.forEach(pk => {
+                        const pRec = history[pk];
+                        if (pRec.isHoliday) {
+                            isHoliday = true;
+                            holidayReason = pRec.holidayReason;
+                        }
+                        if (pRec.attendance) {
+                            Object.keys(pRec.attendance).forEach(roll => {
+                                if (pRec.attendance[roll] === 'absent') {
+                                    mergedAttendance[roll] = 'absent';
+                                } else if (!mergedAttendance[roll]) {
+                                    mergedAttendance[roll] = 'present';
+                                }
+                            });
+                        }
+                    });
+                    return { isHoliday, holidayReason, attendance: mergedAttendance };
+                }
+
                 // Get Monday keys
                 let mondayKeys = [];
                 if (showAllToggle.checked) {
                     const loggedDates = Object.keys(history);
                     const keysSet = new Set();
                     loggedDates.forEach(dateStr => {
-                        keysSet.add(getMondayKey(dateStr));
+                        let cleanDate = dateStr;
+                        if (dateStr.includes('_P')) {
+                            cleanDate = dateStr.split('_P')[0];
+                        } else if (dateStr.includes('_')) {
+                            cleanDate = dateStr.split('_')[0];
+                        }
+                        keysSet.add(getMondayKey(cleanDate));
                     });
                     mondayKeys = Array.from(keysSet).sort();
                 }
@@ -397,9 +436,9 @@
                     // Calculate total active school days
                     let schoolDaysCount = 0;
                     weekDates.forEach(col => {
-                        const record = history[col.key] || {};
+                        const record = getDayRecord(col.key);
                         const globalHol = globalHolidays.find(h => h.date === col.key);
-                        if (!record.isHoliday && !globalHol) {
+                        if ((!record || !record.isHoliday) && !globalHol) {
                             schoolDaysCount++;
                         }
                     });
@@ -428,7 +467,7 @@
 
                         let presentCount = 0;
                         weekDates.forEach((col, colIdx) => {
-                            const record = history[col.key];
+                            const record = getDayRecord(col.key);
                             const globalHol = globalHolidays.find(h => h.date === col.key);
                             if ((record && record.isHoliday) || globalHol) {
                                 if (index === 0) {

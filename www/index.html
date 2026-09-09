@@ -18,47 +18,110 @@
     <div class="container">
         <!-- Dashboard Header -->
         <header class="glass-panel" id="main-header">
-            <div class="header-info">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <button class="btn btn-outline btn-sm" id="back-to-admin-btn" style="display: none; padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="window.location.href='admin.html'">
-                        <i class="fas fa-arrow-left"></i> Admin Portal
+            <!-- Header Top Row: Branding, Selectors & Quick Actions -->
+            <div class="header-top">
+                <div class="header-info">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+                        <button class="btn btn-outline btn-sm" id="back-to-admin-btn" style="display: none; padding: 0.25rem 0.5rem; font-size: 0.8rem;" onclick="window.location.href='admin.html'">
+                            <i class="fas fa-arrow-left"></i> Admin Portal
+                        </button>
+                    </div>
+                    <h1>
+                        Attendance Dashboard
+                        <span id="sync-dot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #10b981; vertical-align: middle;" title="Synced to Cloud"></span>
+                    </h1>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.35rem; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <i class="far fa-calendar-alt" style="color: var(--primary);"></i>
+                            <input type="date" id="attendance-date-picker" style="border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); outline: none; cursor: pointer; transition: var(--transition);">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <i class="fas fa-graduation-cap" style="color: var(--primary);"></i>
+                            <select id="class-dropdown" style="border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 700; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); outline: none; cursor: pointer; transition: var(--transition);">
+                                <optgroup label="IV Year (CSE-DS)">
+                                    <option value="IV_A">IV Year / Section A (CSE-DS)</option>
+                                    <option value="IV_B">IV Year / Section B (CSE-DS)</option>
+                                    <option value="IV_C">IV Year / Section C (CSE-DS)</option>
+                                    <option value="IV_D">IV Year / Section D (CSE-DS)</option>
+                                </optgroup>
+                                <optgroup label="III Year (CSE-DS)">
+                                    <option value="III_A">III Year / Section A (CSE-DS)</option>
+                                    <option value="III_B">III Year / Section B (CSE-DS)</option>
+                                    <option value="III_C">III Year / Section C (CSE-DS)</option>
+                                    <option value="III_D">III Year / Section D (CSE-DS)</option>
+                                </optgroup>
+                                <optgroup label="II Year (CSE-DS)">
+                                    <option value="II_A">II Year / Section A (CSE-DS)</option>
+                                    <option value="II_B">II Year / Section B (CSE-DS)</option>
+                                    <option value="II_C">II Year / Section C (CSE-DS)</option>
+                                    <option value="II_D">II Year / Section D (CSE-DS)</option>
+                                </optgroup>
+                                <optgroup label="I Year (CSE-DS)">
+                                    <option value="I_A">I Year / Section A (CSE-DS)</option>
+                                    <option value="I_B">I Year / Section B (CSE-DS)</option>
+                                    <option value="I_C">I Year / Section C (CSE-DS)</option>
+                                    <option value="I_D">I Year / Section D (CSE-DS)</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <button class="btn btn-outline" id="theme-toggle" title="Toggle Light/Dark Mode" style="padding: 0.5rem 0.75rem;">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <button class="btn btn-primary" id="add-student-btn" title="Add new student to roster">
+                        <i class="fas fa-user-plus"></i> Add Student
+                    </button>
+                    <button class="btn btn-outline" id="delete-student-menu-btn" title="Delete a student from roster" style="color: var(--danger); border-color: var(--danger-border);">
+                        <i class="fas fa-user-minus"></i> Remove Student
                     </button>
                 </div>
-                <h1 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
-                    Attendance Dashboard
-                    <span id="sync-dot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #10b981; vertical-align: middle;" title="Synced to Cloud"></span>
-                </h1>
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
-                    <i class="far fa-calendar-alt" style="color: var(--primary);"></i>
-                    <input type="date" id="attendance-date-picker" style="border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); outline: none; cursor: pointer; transition: var(--transition);">
+            </div>
 
-                    <select id="class-dropdown" style="display: none; border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); outline: none; cursor: pointer; margin-left: 0.5rem; transition: var(--transition);">
-                        <!-- Options populated by JS -->
-                    </select>
+            <!-- Header Toolbar: Reports & Data Exports -->
+            <div class="header-toolbar">
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 0.25rem;">
+                        <i class="fas fa-chart-bar" style="color: var(--primary); margin-right: 0.25rem;"></i>Reports:
+                    </span>
+                    <a href="subject-report.html" class="btn btn-primary" id="subject-report-btn" title="View Subject-wise Attendance report" style="background: var(--info); border-color: var(--info); font-size: 0.82rem; padding: 0.4rem 0.75rem;">
+                        <i class="fas fa-book"></i> Subject Report
+                    </a>
+                    <a href="weekly-report.html" class="btn btn-outline" id="weekly-report-btn" title="View Weekly Attendance report" style="font-size: 0.82rem; padding: 0.4rem 0.75rem;">
+                        <i class="fas fa-calendar-week"></i> Weekly Report
+                    </a>
+                    <a href="monthly-report.html" class="btn btn-outline" id="monthly-report-btn" title="View Monthly Attendance report" style="font-size: 0.82rem; padding: 0.4rem 0.75rem;">
+                        <i class="fas fa-calendar-alt"></i> Monthly Report
+                    </a>
+                    <a href="semester-report.html" class="btn btn-outline" id="semester-report-btn" title="View Semester Attendance report" style="font-size: 0.82rem; padding: 0.4rem 0.75rem;">
+                        <i class="fas fa-book-open"></i> Semester Report
+                    </a>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <button class="btn btn-outline" id="export-btn" title="Export Attendance Report" style="font-size: 0.82rem; padding: 0.4rem 0.75rem;">
+                        <i class="fas fa-file-export"></i> Export CSV
+                    </button>
                 </div>
             </div>
-            <div class="header-actions">
-                <button class="btn btn-outline" id="theme-toggle" title="Toggle Light/Dark Mode">
-                    <i class="fas fa-moon"></i>
-                </button>
-                <a href="weekly-report.html" class="btn btn-outline" id="weekly-report-btn" title="View Weekly Attendance report">
-                    <i class="fas fa-calendar-week"></i> Weekly Report
-                </a>
-                <a href="monthly-report.html" class="btn btn-outline" id="monthly-report-btn" title="View Monthly Attendance report">
-                    <i class="fas fa-calendar-alt"></i> Monthly Report
-                </a>
-                <a href="semester-report.html" class="btn btn-outline" id="semester-report-btn" title="View Semester Attendance report">
-                    <i class="fas fa-book-open"></i> Semester Report
-                </a>
-                <button class="btn btn-outline" id="export-btn" title="Export Attendance Report">
-                    <i class="fas fa-file-export"></i> Export
-                </button>
-                <button class="btn btn-outline" id="delete-student-menu-btn" title="Delete a student from roster" style="color: var(--danger); border-color: var(--danger-border);">
-                    <i class="fas fa-trash-alt"></i> Delete Student
-                </button>
-                <button class="btn btn-primary" id="add-student-btn" title="Add new student to roster">
-                    <i class="fas fa-plus"></i> Add Student
-                </button>
+
+            <!-- Daily Schedule Ribbon & Banner -->
+            <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <span id="daily-schedule-title" style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+                        <i class="fas fa-clock" style="color: var(--primary); margin-right: 0.35rem;"></i>Today's Class Schedule:
+                    </span>
+                    <span id="daily-schedule-count" style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);"></span>
+                </div>
+                <div id="copy-notification-banner" style="display: none; padding: 0.6rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; animation: fadeIn 0.2s ease;"></div>
+                <div id="daily-schedule-container">
+                    <!-- Periods will be injected here -->
+                </div>
+                <div id="active-subject-banner" style="display: none; padding: 0.75rem 1rem; background: rgba(99, 102, 241, 0.08); border-left: 3px solid var(--primary); border-radius: var(--radius-sm); font-size: 0.88rem; color: var(--text-primary);">
+                    <!-- Dynamic subject details -->
+                </div>
             </div>
         </header>
 
@@ -119,8 +182,14 @@
                 <div class="panel-header">
                     <h2>Student Roster</h2>
                     <div class="header-actions">
+                        <button class="btn btn-outline" id="copy-prev-attendance" title="Copy attendance from the previous period today" style="color: var(--info); border-color: var(--info); font-size: 0.85rem; display: none;">
+                            <i class="fas fa-copy"></i> Copy Prev Period
+                        </button>
                         <button class="btn btn-outline" id="mark-all-present" title="Mark all students present">Mark All Present</button>
                         <button class="btn btn-outline" id="mark-all-absent" title="Mark all students absent">Mark All Absent</button>
+                        <button class="btn btn-primary" id="btn-next-period" title="Save and go to next subject in timetable" style="font-size: 0.85rem; display: none; background: linear-gradient(135deg, var(--primary), #818cf8); border: none;">
+                            <i class="fas fa-forward"></i> Next Subject
+                        </button>
                     </div>
                 </div>
                 <!-- Search & Filters -->
@@ -309,7 +378,7 @@
     
     <!-- App Logic Scripts -->
     <script src="auth.js"></script>
-    
+    <script src="timetable-data.js"></script>
     <script src="sync.js"></script>
 
     <!-- Script -->

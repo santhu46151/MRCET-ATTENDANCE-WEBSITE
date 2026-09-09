@@ -3,298 +3,537 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Portal - Attendance System</title>
+    <title>Admin Portal - MRCET Attendance System</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .admin-section {
-            background: var(--bg-secondary);
-            border: 1px solid var(--card-border);
-            border-radius: var(--radius-md);
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        .admin-section h2 {
-            margin-top: 0;
-            margin-bottom: 1rem;
-            font-size: 1.25rem;
+        /* Admin Portal Styling */
+        .admin-nav-tabs {
             display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--card-border);
+            padding-bottom: 0.5rem;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            color: var(--primary);
+            transition: var(--transition);
         }
+
+        .tab-btn:hover {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .tab-btn.active {
+            color: #ffffff;
+            background: var(--primary);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+        }
+
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.25s ease-in-out;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .admin-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-lg);
+            padding: 1.75rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            backdrop-filter: var(--backdrop-blur);
+        }
+
+        .admin-card h2 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .admin-card p.subtitle {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            margin-bottom: 1.25rem;
+        }
+
         .user-table {
             width: 100%;
             border-collapse: collapse;
         }
+
         .user-table th, .user-table td {
-            padding: 0.75rem;
+            padding: 0.85rem 1rem;
             text-align: left;
             border-bottom: 1px solid var(--card-border);
             color: var(--text-secondary);
+            font-size: 0.9rem;
         }
+
         .user-table th {
             color: var(--text-primary);
-            font-weight: 600;
+            font-weight: 700;
+            background: rgba(0, 0, 0, 0.02);
         }
-        .user-table tr:last-child td {
-            border-bottom: none;
+
+        .user-table tr:hover {
+            background: rgba(79, 70, 229, 0.03);
         }
-        .btn-sm {
-            padding: 0.25rem 0.75rem;
-            font-size: 0.85rem;
-        }
-        .form-row {
-            display: flex;
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 1rem;
             align-items: flex-end;
-            margin-bottom: 1rem;
+            margin-bottom: 1.25rem;
         }
+
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
+            gap: 0.35rem;
         }
+
         .form-group label {
             font-size: 0.85rem;
+            font-weight: 600;
             color: var(--text-secondary);
         }
-        .form-group input {
-            padding: 0.5rem;
+
+        .form-group input, 
+        .form-group select {
+            padding: 0.55rem 0.85rem;
             border-radius: var(--radius-sm);
             border: 1px solid var(--card-border);
-            background: var(--bg-primary);
+            background: var(--bg-secondary);
             color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            transition: var(--transition);
         }
+
+        .form-group input:focus, 
+        .form-group select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+
+        .upload-dropzone {
+            border: 2px dashed var(--card-border);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            text-align: center;
+            background: var(--bg-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .upload-dropzone:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .status-badge.success { background: var(--success-bg); color: var(--success); }
+        .status-badge.warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+        .status-badge.info { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
     </style>
 </head>
 <body>
     <div class="bg-glow"></div>
     <div class="bg-glow-2"></div>
 
-    <div class="container">
-        <header class="glass-panel" id="main-header" style="margin-bottom: 2rem;">
-            <div class="header-info" style="display: flex; align-items: center; gap: 1rem;">
-                <button class="btn btn-outline btn-sm" onclick="window.location.href='login.html'" style="padding: 0.4rem 0.6rem; border-color: var(--card-border); color: var(--text-primary);" title="Back to Portal">
-                    <i class="fas fa-arrow-left"></i>
-                </button>
-                <h1 style="margin: 0;"><i class="fas fa-shield-alt" style="color: var(--primary);"></i> Admin Portal</h1>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn-primary" onclick="window.location.href='index.html?from=admin'">
-                    <i class="fas fa-chart-line"></i> View Dashboard
-                </button>
+    <div class="container" style="max-width: 1300px;">
+        <!-- Admin Header -->
+        <header class="glass-panel" id="main-header" style="margin-bottom: 1.5rem; padding: 1.25rem 1.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 1rem;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <button class="btn btn-outline btn-sm" onclick="window.location.href='login.html'" style="padding: 0.4rem 0.65rem;" title="Back to Login">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h1 style="margin: 0; font-size: 1.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-shield-alt" style="color: var(--primary);"></i> Admin Portal
+                        </h1>
+                        <p style="margin: 0.15rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Malla Reddy College of Engineering and Technology</p>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <a href="index.html?from=admin" class="btn btn-primary" style="font-size: 0.88rem;">
+                        <i class="fas fa-clipboard-check"></i> Attendance Dashboard
+                    </a>
+                    <button class="btn btn-outline" id="logout-btn" style="font-size: 0.88rem;" title="Logout">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
             </div>
         </header>
 
-        <section class="admin-section glass-panel">
-            <h2><i class="fas fa-user-check"></i> Pending Approvals</h2>
-            <table class="user-table" id="pending-users-table">
-                <thead>
-                    <tr>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Year</th>
-                        <th>Section</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="pending-users-body">
-                    <tr><td colspan="5" style="text-align: center;">Loading pending users...</td></tr>
-                </tbody>
-            </table>
-        </section>
-
-        <section class="admin-section glass-panel">
-            <h2><i class="fas fa-chalkboard-teacher"></i> Add New Class & Upload Roster (CSV)</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Year</label>
-                    <select id="class-year" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer; appearance: none;" required>
-                        <option value="" disabled selected>Select Year</option>
-                        <option value="II">2nd Year (II)</option>
-                        <option value="III">3rd Year (III)</option>
-                        <option value="IV">4th Year (IV)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Section</label>
-                    <select id="class-section" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer; appearance: none;" required>
-                        <option value="" disabled selected>Select Section</option>
-                        <option value="A">Section A</option>
-                        <option value="B">Section B</option>
-                        <option value="C">Section C</option>
-                        <option value="D">Section D</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Department</label>
-                    <input type="text" id="class-department" value="DS" readonly style="cursor: not-allowed; opacity: 0.8; font-weight: bold; width: 100%;">
-                </div>
-                <div class="form-group">
-                    <label>CSV File (RollNo, StudentName, StudentPhone, ParentName, ParentPhone)</label>
-                    <input type="file" id="class-csv" accept=".csv" required>
-                </div>
-                <button class="btn btn-primary" id="btn-upload-class" style="height: 35px;">
-                    <i class="fas fa-upload"></i> Create Class
-                </button>
-            </div>
-            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">Note: Uploading a CSV for an existing Year/Section will overwrite its current roster.</p>
-        </section>
-
-        <section class="admin-section glass-panel">
-            <h2><i class="fas fa-clock"></i> Timetable Management (CSV)</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Year</label>
-                    <select id="tt-class-year" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer; appearance: none;" required>
-                        <option value="" disabled selected>Select Year</option>
-                        <option value="II">2nd Year (II)</option>
-                        <option value="III">3rd Year (III)</option>
-                        <option value="IV">4th Year (IV)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Section</label>
-                    <select id="tt-class-section" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer; appearance: none;" required>
-                        <option value="" disabled selected>Select Section</option>
-                        <option value="A">Section A</option>
-                        <option value="B">Section B</option>
-                        <option value="C">Section C</option>
-                        <option value="D">Section D</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>CSV File (Day, Period, StartTime, EndTime, Subject, Faculty, Session)</label>
-                    <input type="file" id="tt-csv" accept=".csv" required>
-                </div>
-                <button class="btn btn-primary" id="btn-upload-tt" style="height: 35px;">
-                    <i class="fas fa-upload"></i> Upload Timetable
-                </button>
-            </div>
-            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">Note: Uploading a CSV will overwrite the existing timetable for the selected Year/Section.</p>
-        </section>
-
-        <section class="admin-section glass-panel">
-            <h2><i class="fas fa-calendar-times"></i> Holiday Management</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Holiday Date</label>
-                    <input type="date" id="holiday-date" required>
-                </div>
-                <div class="form-group" style="flex: 1;">
-                    <label>Reason / Description</label>
-                    <input type="text" id="holiday-reason" placeholder="e.g. Independence Day" required>
-                </div>
-                <button class="btn btn-primary" id="btn-add-holiday" style="height: 35px;">
-                    <i class="fas fa-plus"></i> Add Holiday
-                </button>
-            </div>
-            <table class="user-table" id="holidays-table" style="margin-top: 1rem;">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Reason</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="holidays-body">
-                    <tr><td colspan="3" style="text-align: center;">Loading holidays...</td></tr>
-                </tbody>
-            </table>
-        </section>
-
-        <section class="admin-section glass-panel">
-            <h2><i class="fas fa-calendar-alt"></i> Academic Calendar</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Semester Term (e.g. 2026_1)</label>
-                    <input type="text" id="acad-term" placeholder="e.g. 2026_1" required style="width: 100%; padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary);">
-                </div>
-                <div class="form-group">
-                    <label>Start Date</label>
-                    <input type="date" id="acad-start-date" required style="width: 100%; padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary);">
-                </div>
-                <div class="form-group">
-                    <label>End Date</label>
-                    <input type="date" id="acad-end-date" required style="width: 100%; padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary);">
-                </div>
-                <button class="btn btn-primary" id="btn-save-acad" style="height: 35px;">
-                    <i class="fas fa-save"></i> Save Calendar
-                </button>
-            </div>
-        </section>
-
-        <section class="admin-section glass-panel">
-            <h2><i class="fas fa-cog"></i> Global Semester Settings</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Default Semester Start Date</label>
-                    <input type="date" id="global-sem-start" required>
-                </div>
-                <div class="form-group">
-                    <label>Default Semester End Date</label>
-                    <input type="date" id="global-sem-end" required>
-                </div>
-                <button class="btn btn-primary" id="btn-save-semester-config" style="height: 35px;">
-                    <i class="fas fa-save"></i> Save Settings
-                </button>
-            </div>
-            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">These dates will be used as the default range in the Semester Report for all users.</p>
-        </section>
-
-        <section class="admin-section glass-panel">
-            <h2><i class="fas fa-user-plus"></i> Create HOD Account</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" id="hod-name" placeholder="e.g. Dr. Smith" required>
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="hod-email" placeholder="e.g. hod@mrcet.edu" required>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="hod-password" placeholder="••••••••" required>
-                </div>
-                <button class="btn btn-primary" id="btn-create-hod" style="height: 35px;">
-                    <i class="fas fa-user-plus"></i> Create HOD
-                </button>
-            </div>
-        </section>
-        <section class="admin-section glass-panel">
-            <h2><i class="fas fa-trash-alt" style="color: var(--danger);"></i> Delete Class</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Year</label>
-                    <select id="delete-class-year" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer; appearance: none;" required>
-                        <option value="" disabled selected>Select Year</option>
-                        <option value="II">2nd Year (II)</option>
-                        <option value="III">3rd Year (III)</option>
-                        <option value="IV">4th Year (IV)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Section</label>
-                    <select id="delete-class-section" style="width: 100%; padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer; appearance: none;" required>
-                        <option value="" disabled selected>Select Section</option>
-                        <option value="A">Section A</option>
-                        <option value="B">Section B</option>
-                        <option value="C">Section C</option>
-                        <option value="D">Section D</option>
-                    </select>
-                </div>
-                <button class="btn btn-primary" id="btn-delete-class" style="height: 35px; background-color: var(--danger); border-color: var(--danger-border); color: white;">
-                    <i class="fas fa-trash"></i> Delete Class
-                </button>
-            </div>
-        </section>
-
-        <div style="display: flex; justify-content: center; margin-top: 1rem; margin-bottom: 2rem;">
-            <button class="btn btn-outline" id="logout-btn" style="color: var(--danger); border-color: var(--danger-border); padding: 0.8rem 2.5rem; font-size: 1rem; border-radius: var(--radius-full);">
-                <i class="fas fa-sign-out-alt"></i> Logout
+        <!-- Navigation Tabs -->
+        <nav class="admin-nav-tabs" aria-label="Admin Navigation Tabs">
+            <button class="tab-btn active" data-tab="tab-timetables">
+                <i class="fas fa-calendar-alt"></i> Class Timetables
             </button>
+            <button class="tab-btn" data-tab="tab-rosters">
+                <i class="fas fa-chalkboard-teacher"></i> Class Rosters
+            </button>
+            <button class="tab-btn" data-tab="tab-approvals">
+                <i class="fas fa-user-check"></i> User Approvals
+            </button>
+            <button class="tab-btn" data-tab="tab-holidays">
+                <i class="fas fa-umbrella-beach"></i> Holidays & Calendar
+            </button>
+            <button class="tab-btn" data-tab="tab-settings">
+                <i class="fas fa-cog"></i> Settings & HOD
+            </button>
+        </nav>
+
+        <!-- TAB 1: CLASS TIMETABLES -->
+        <div class="tab-pane active" id="tab-timetables">
+            <!-- Manual Add / Edit Period Section -->
+            <section class="admin-card">
+                <h2><i class="fas fa-plus-circle" style="color: var(--primary);"></i> Add / Edit Timetable Period</h2>
+                <p class="subtitle">Quickly add or update a subject period in the schedule for any class.</p>
+
+                <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                    <div class="form-group">
+                        <label><i class="fas fa-graduation-cap"></i> Target Class</label>
+                        <select id="manual-tt-class">
+                            <option value="IV_A">IV Year - Section A</option>
+                            <option value="IV_B">IV Year - Section B</option>
+                            <option value="IV_C">IV Year - Section C</option>
+                            <option value="IV_D" selected>IV Year - Section D</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="far fa-calendar-alt"></i> Day of Week</label>
+                        <select id="manual-tt-day">
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="far fa-clock"></i> Period</label>
+                        <select id="manual-tt-period">
+                            <option value="1">Period 1 (09:30 - 10:20)</option>
+                            <option value="2">Period 2 (10:20 - 11:10)</option>
+                            <option value="3">Period 3 (11:20 - 12:10)</option>
+                            <option value="4">Period 4 (12:50 - 13:50)</option>
+                            <option value="5">Period 5 (13:50 - 14:50)</option>
+                            <option value="6">Period 6 (14:50 - 15:50)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-book"></i> Subject Name</label>
+                        <input type="text" id="manual-tt-subject" placeholder="e.g. FULL STACK DEVELOPMENT LAB" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-barcode"></i> Subject Code</label>
+                        <input type="text" id="manual-tt-code" placeholder="e.g. R22A0589">
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-user-tie"></i> Faculty Name</label>
+                        <input type="text" id="manual-tt-faculty" placeholder="e.g. K MAHESH BABU">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                    <button class="btn btn-primary" id="btn-save-manual-period" style="font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.75rem;">
+                        <i class="fas fa-save"></i> Save / Add Period
+                    </button>
+                    <button class="btn btn-outline" id="btn-seed-iv-tt" style="font-size: 0.9rem; font-weight: 600; padding: 0.65rem 1.5rem; display: inline-flex; align-items: center; gap: 0.5rem;" title="Load official IV Year A, B, C, D timetables">
+                        <i class="fas fa-magic"></i> Quick Load Sample (IV Year CSE-DS)
+                    </button>
+                </div>
+            </section>
+
+            <section class="admin-card">
+                <h2><i class="fas fa-table"></i> Class Timetable Viewer</h2>
+                <p class="subtitle">Inspect schedule entries saved for any class, or delete periods/timetables.</p>
+
+                <div style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.25rem; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1; min-width: 240px;">
+                        <label>Select Year & Section to View</label>
+                        <select id="tt-view-class">
+                            <option value="">-- Choose Class --</option>
+                            <!-- Dynamically populated with optgroups by JS -->
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 180px;">
+                        <label>Select Day to View</label>
+                        <select id="tt-view-day">
+                            <option value="ALL">Full Week (All Days)</option>
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="btn-load-timetable" style="height: 38px; display: inline-flex; align-items: center; gap: 0.4rem;">
+                        <i class="fas fa-eye"></i> View Schedule
+                    </button>
+                    <button class="btn btn-outline" id="btn-add-row-timetable" style="height: 38px; color: var(--primary); border-color: var(--primary); display: inline-flex; align-items: center; gap: 0.4rem;" title="Add another period row to this timetable">
+                        <i class="fas fa-plus-circle"></i> Add Row
+                    </button>
+                    <button class="btn btn-outline" id="btn-delete-day-timetable" style="height: 38px; color: #f59e0b; border-color: rgba(245, 158, 11, 0.4); display: inline-flex; align-items: center; gap: 0.4rem;" title="Delete timetable entries for the currently selected day">
+                        <i class="fas fa-calendar-minus"></i> Delete Day
+                    </button>
+                    <button class="btn btn-outline" id="btn-delete-class-timetable" style="height: 38px; color: var(--danger); border-color: var(--danger-border); display: inline-flex; align-items: center; gap: 0.4rem;" title="Delete all timetable entries for this class">
+                        <i class="fas fa-trash-alt"></i> Delete Timetable
+                    </button>
+                    <button class="btn btn-outline" id="btn-reset-class-timetable" style="height: 38px; color: #10b981; border-color: rgba(16, 185, 129, 0.4); display: inline-flex; align-items: center; gap: 0.4rem;" title="Reset back to official default timetable for this class">
+                        <i class="fas fa-undo"></i> Reset Default
+                    </button>
+                </div>
+
+                <div class="table-responsive" style="overflow-x: auto;">
+                    <table class="user-table" id="timetable-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 130px;">Day</th>
+                                <th style="width: 160px;">Period & Timing</th>
+                                <th>Subject Name</th>
+                                <th style="width: 120px;">Code</th>
+                                <th>Faculty</th>
+                                <th style="width: 80px; text-align: center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="timetable-tbody">
+                            <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">Select a class above to view its timetable.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB 2: CLASS ROSTERS -->
+        <div class="tab-pane" id="tab-rosters">
+            <section class="admin-card">
+                <h2><i class="fas fa-user-plus"></i> Add Class & Upload Student Roster (CSV)</h2>
+                <p class="subtitle">Upload students into the database for attendance tracking.</p>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Year</label>
+                        <select id="class-year" required>
+                            <option value="" disabled selected>Select Year</option>
+                            <option value="I">1st Year (I)</option>
+                            <option value="II">2nd Year (II)</option>
+                            <option value="III">3rd Year (III)</option>
+                            <option value="IV">4th Year (IV)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Section</label>
+                        <select id="class-section" required>
+                            <option value="" disabled selected>Select Section</option>
+                            <option value="A">Section A</option>
+                            <option value="B">Section B</option>
+                            <option value="C">Section C</option>
+                            <option value="D">Section D</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Department</label>
+                        <input type="text" id="class-department" value="DS" readonly style="cursor: not-allowed; opacity: 0.8; font-weight: bold;">
+                    </div>
+                    <div class="form-group">
+                        <label>CSV File (RollNo, Name, StudentPhone, ParentName, ParentPhone)</label>
+                        <input type="file" id="class-csv" accept=".csv" required>
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" id="btn-upload-class" style="width: 100%; height: 38px;">
+                            <i class="fas fa-upload"></i> Create / Update Class
+                        </button>
+                    </div>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Note: Uploading a CSV for an existing class will refresh its current roster.</p>
+            </section>
+        </div>
+
+        <!-- TAB 3: USER APPROVALS -->
+        <div class="tab-pane" id="tab-approvals">
+            <section class="admin-card">
+                <h2><i class="fas fa-user-clock"></i> Pending Account Approvals</h2>
+                <p class="subtitle">Approve student and faculty account registrations.</p>
+
+                <div class="table-responsive">
+                    <table class="user-table" id="pending-users-table">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Requested Role</th>
+                                <th>Year</th>
+                                <th>Section</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pending-users-body">
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading pending users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB 4: HOLIDAYS & CALENDAR -->
+        <div class="tab-pane" id="tab-holidays">
+            <section class="admin-card">
+                <h2><i class="fas fa-calendar-plus"></i> Holiday Management</h2>
+                <p class="subtitle">Mark single dates as college holidays.</p>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Holiday Date</label>
+                        <input type="date" id="holiday-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Holiday Reason</label>
+                        <input type="text" id="holiday-reason" placeholder="e.g. Republic Day, Deepavali" required>
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" id="btn-add-holiday" style="height: 38px;">
+                            <i class="fas fa-plus"></i> Add Holiday
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Reason</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holidays-body">
+                            <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Loading holidays...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="admin-card">
+                <h2><i class="fas fa-calendar-check"></i> Academic Calendar</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Term / Code</label>
+                        <input type="text" id="acad-term" placeholder="e.g. 2026_1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" id="acad-start-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" id="acad-end-date" required>
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" id="btn-save-acad" style="height: 38px;">
+                            <i class="fas fa-save"></i> Save Calendar
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB 5: SETTINGS & HOD -->
+        <div class="tab-pane" id="tab-settings">
+            <section class="admin-card">
+                <h2><i class="fas fa-sliders-h"></i> Global Semester Settings</h2>
+                <p class="subtitle">These dates serve as the official semester date bounds across all subject and semester reports.</p>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Default Semester Start Date</label>
+                        <input type="date" id="global-sem-start" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Default Semester End Date</label>
+                        <input type="date" id="global-sem-end" required>
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" id="btn-save-semester-config" style="height: 38px;">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="admin-card">
+                <h2><i class="fas fa-user-shield"></i> Create HOD Account</h2>
+                <p class="subtitle">Create dedicated Head of Department access accounts.</p>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="hod-name" placeholder="e.g. Dr. T Siva Ratna Sai" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="hod-email" placeholder="e.g. hod_ds@mrcet.edu" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="hod-password" placeholder="••••••••" required>
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" id="btn-create-hod" style="height: 38px;">
+                            <i class="fas fa-user-plus"></i> Create HOD
+                        </button>
+                    </div>
+                </div>
+            </section>
         </div>
 
     </div>
@@ -304,9 +543,31 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="firebase-init.js"></script>
-    
     <!-- App Logic Scripts -->
     <script src="auth.js"></script>
+    <script src="timetable-data.js"></script>
     <script src="admin.js"></script>
+
+    <script>
+        // Tab switching logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabs = document.querySelectorAll('.tab-btn');
+            const panes = document.querySelectorAll('.tab-pane');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    panes.forEach(p => p.classList.remove('active'));
+
+                    tab.classList.add('active');
+                    const target = tab.getAttribute('data-tab');
+                    const targetPane = document.getElementById(target);
+                    if (targetPane) {
+                        targetPane.classList.add('active');
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>

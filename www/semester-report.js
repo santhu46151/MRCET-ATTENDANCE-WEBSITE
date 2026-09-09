@@ -222,14 +222,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="font-family: monospace; font-weight: 600;">${student.rollNo}</td>
                     <td>${student.name}</td>
                     <td>${workingDays}</td>
-                    <td>${stats.present}</td>
-                    <td>${stats.absent}</td>
                     <td style="font-weight: 700; color: ${isGood ? 'var(--success)' : 'var(--danger)'};">${percent}%</td>
                 </tr>
             `;
         });
 
-        tableBody.innerHTML = html || '<tr><td colspan="7" style="text-align: center;">No data found.</td></tr>';
+        tableBody.innerHTML = html || '<tr><td colspan="5" style="text-align: center;">No data found.</td></tr>';
 
         const avg = roster.length > 0 ? Math.round(totalClassPercentSum / roster.length) : 0;
         summaryAveragePercent.textContent = `${avg}%`;
