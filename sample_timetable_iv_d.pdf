@@ -1,0 +1,73 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Length 1659 >>
+stream
+BT
+/F1 14 Tf
+180 550 Td
+(MALLA REDDY COLLEGE OF ENGINEERING AND TECHNOLOGY) Tj
+/F1 11 Tf
+-40 -20 Td
+(DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING - DATA SCIENCE) Tj
+/F1 12 Tf
+40 -20 Td
+(IV B.TECH I SEMESTER - SECTION D - TIME TABLE) Tj
+/F1 10 Tf
+-130 -35 Td
+(DAY        P1(09:30-10:20)   P2(10:20-11:10)   P3(11:20-12:10)   LUNCH   P4(12:50-01:50)   P5(01:50-02:50)   P6(02:50-03:50)) Tj
+0 -22 Td
+(MON        CC                DL                BT                LUNCH   FSD LAB           FSD LAB           FSD LAB) Tj
+0 -22 Td
+(TUE        BT                FSD               DBS               LUNCH   CC                DL                DBS) Tj
+0 -22 Td
+(WED        FSD               BT                CC                LUNCH   DBS               CC                DL) Tj
+0 -22 Td
+(THU        DBS               CC                BT                LUNCH   DL                FSD               TUTORIAL) Tj
+0 -22 Td
+(FRI        BT                FSD               DL                LUNCH   DBS               FSD               CC) Tj
+0 -22 Td
+(SAT        DBS               BT                DL                LUNCH   CC                FSD               TUTORIAL) Tj
+0 -40 Td
+/F1 11 Tf
+(SUBJECT DETAILS & FACULTY ASSIGNMENT:) Tj
+/F1 9 Tf
+0 -18 Td
+(1. R22A0522 - CLOUD COMPUTING (CC) - A. SUPRIYA) Tj
+0 -16 Td
+(2. R22A6605 - DEEP LEARNING (DL) - D. SOWJANYA) Tj
+0 -16 Td
+(3. R22A0527 - BLOCKCHAIN TECHNOLOGY (BT) - CH. SRIVALLI) Tj
+0 -16 Td
+(4. R22A6214 - DATABASE SECURITY (DBS) - B. SWAPNA LATHA) Tj
+0 -16 Td
+(5. R22A0513 - FULL STACK DEVELOPMENT (FSD) - A.R. LAVANYA) Tj
+0 -16 Td
+(6. R22A0589 - FULL STACK DEVELOPMENT LAB (FSD LAB) - A.R. LAVANYA / BALAJI) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000316 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+2027
+%%EOF

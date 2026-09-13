@@ -1,10 +1,11 @@
-document.addEventListener('DOMContentLoaded', () => {
-    if (!authManager.isAuthenticated()) {
-        alert("Please login to view this page.");
-        window.location.href = 'login.html';
-        return;
-    }
+function formatLocalDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
 
+document.addEventListener('DOMContentLoaded', () => {
     // UI Elements
     const classSelect = document.getElementById('class-select');
     const startDateInput = document.getElementById('start-date');
@@ -24,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let globalHolidays = [];
     let currentReportData = null; // store for export
 
-    // Default Dates Fallback (if no config)
+    // Default Dates Fallback
     const today = new Date();
     const defaultStartStr = '2026-07-06';
     
@@ -41,47 +42,64 @@ document.addEventListener('DOMContentLoaded', () => {
             if (configDoc.exists) {
                 const configData = configDoc.data();
                 startDateInput.value = urlStart || configData.startDate || defaultStartStr;
-                endDateInput.value = urlEnd || configData.endDate || today.toISOString().split('T')[0];
+                // Default to urlEnd, or today's date so report calculates current attendance till date!
+                // (configData.endDate is the full semester term end in Nov/Dec)
+                endDateInput.value = urlEnd || formatLocalDate(today);
             } else {
                 startDateInput.value = urlStart || defaultStartStr;
-                endDateInput.value = urlEnd || today.toISOString().split('T')[0];
+                endDateInput.value = urlEnd || formatLocalDate(today);
             }
         } catch (e) {
             console.error("Error loading config", e);
             startDateInput.value = urlStart || defaultStartStr;
-            endDateInput.value = urlEnd || today.toISOString().split('T')[0];
+            endDateInput.value = urlEnd || formatLocalDate(today);
         }
         // Load Classes
         try {
-            let classesSnap;
-            if (authManager.user.role === 'admin' || authManager.user.role === 'hod') {
-                classesSnap = await db.collection('classes').get();
-            } else if (authManager.user.role === 'faculty') {
-                classesSnap = await db.collection('classes').where('facultyUid', '==', authManager.user.uid).get();
-            } else if (authManager.user.role === 'student' && authManager.user.year && authManager.user.section) {
-                const classId = `${authManager.user.year}_${authManager.user.section}`;
-                const classDoc = await db.collection('classes').doc(classId).get();
-                classesSnap = classDoc.exists ? [classDoc] : [];
-            } else {
-                classesSnap = [];
-            }
+            // Load all available classes so user can select any class freely
+            let classesSnap = await db.collection('classes').get();
 
-            classSelect.innerHTML = '<option value="">-- Select Class --</option>';
-            classesSnap.forEach(doc => {
-                const data = doc.data();
+            classSelect.innerHTML = '';
+            const rawDocs = [];
+            classesSnap.forEach(doc => rawDocs.push({ id: doc.id, data: doc.data() }));
+
+            rawDocs.sort((a, b) => {
+                const nameA = `${a.data.year || ''} ${a.data.section || ''}`;
+                const nameB = `${b.data.year || ''} ${b.data.section || ''}`;
+                return nameA.localeCompare(nameB);
+            });
+
+            rawDocs.forEach(({ id, data }) => {
                 const option = document.createElement('option');
-                option.value = doc.id;
-                option.textContent = `${data.year} Year / Section ${data.section} (${data.department})`;
-                if (urlClassId && doc.id === urlClassId) option.selected = true;
+                option.value = id;
+                const yr = data.year || '';
+                const br = data.branch || 'CSE';
+                const dp = data.department || 'DS';
+                const sc = data.section || '';
+                option.textContent = `${yr} ${br} ${dp} ${sc}`.trim() || id;
                 classSelect.appendChild(option);
             });
+
+            // Auto-select class: URL param > localStorage > first class
+            const savedClassId = localStorage.getItem('current_class_id');
+            if (urlClassId && classSelect.querySelector(`option[value="${urlClassId}"]`)) {
+                classSelect.value = urlClassId;
+            } else if (savedClassId && classSelect.querySelector(`option[value="${savedClassId}"]`)) {
+                classSelect.value = savedClassId;
+            } else if (classSelect.options.length > 0) {
+                classSelect.value = classSelect.options[0].value;
+            }
+
+            // Ensure enabled and unlocked
+            classSelect.disabled = false;
+            classSelect.style.cursor = 'pointer';
 
             // Load Holidays
             const holidaysSnap = await db.collection('holidays').get();
             holidaysSnap.forEach(doc => globalHolidays.push(doc.data().date));
 
-            // Auto-generate if URL params exist
-            if (urlClassId) {
+            // Auto-generate report immediately
+            if (classSelect.value) {
                 generateReport();
             }
 
@@ -110,9 +128,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = classDoc.data();
             const roster = data.roster || [];
-            const history = data.history || {};
+            const remoteHistory = data.history || {};
+            let localHistory = {};
+            try { localHistory = JSON.parse(localStorage.getItem('attendance_history_' + classId) || '{}'); } catch(e){}
+            try { const g = JSON.parse(localStorage.getItem('attendance_history') || '{}'); localHistory = { ...g, ...localHistory }; } catch(e){}
+            const history = { ...localHistory, ...remoteHistory };
 
-            let workingDays = 0; // Represents Total Scheduled Sessions
+            let workingDays = 0; // Represents Total Conducted Working Days
             const studentStats = {};
 
             // Initialize student stats
@@ -124,49 +146,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             });
 
-            // Fetch timetable for this class
-            let timetable = {};
-            try {
-                const ttDoc = await db.collection('timetables').doc(classId).get();
-                if (ttDoc.exists) {
-                    timetable = ttDoc.data().schedule || {};
-                }
-            } catch (e) {
-                console.warn("Could not fetch timetable for class", classId, e);
-            }
+            // Semester report calculation strictly based on start and end date (No timetable dependency)
+            // Dates beyond today cannot have conducted attendance
+            const todayStr = formatLocalDate(today);
+            const effectiveEnd = end > todayStr ? todayStr : end;
 
-            // Generate date range
-            const startD = new Date(start);
-            const endD = new Date(end);
-            const todayD = new Date(today.toISOString().split('T')[0]);
-            const finalEndD = endD > todayD ? todayD : endD;
-            
-            const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            // Loop through date range
+            for (let d = new Date(start + 'T00:00:00'); d <= new Date(effectiveEnd + 'T00:00:00'); d.setDate(d.getDate() + 1)) {
+                // Strictly exclude Sundays
+                if (d.getDay() === 0) continue;
 
-            for (let d = new Date(startD); d <= finalEndD; d.setDate(d.getDate() + 1)) {
-                const dateStr = d.toISOString().split('T')[0];
+                const dateStr = formatLocalDate(d);
                 
-                // Exclude holidays
+                // Exclude declared holidays
                 if (globalHolidays.includes(dateStr)) continue;
                 
-                const dayName = daysOfWeek[d.getDay()];
-                
-                // Single daily session logic
-                workingDays++; // Increment total scheduled classes
-                
-                let attendanceMap = {};
-                
-                if (history[dateStr] && !history[dateStr].isHoliday) {
-                    attendanceMap = history[dateStr].attendance || history[dateStr];
-                    if (typeof attendanceMap === 'object' && attendanceMap.attendance) {
-                        attendanceMap = attendanceMap.attendance;
+                // Find attendance records for this date (supports classId_date_P*, date_P*, classId_date)
+                let isDateHoliday = false;
+                const matchingRecords = [];
+                for (const k in history) {
+                    if (k === dateStr || k === `${classId}_${dateStr}` || k.startsWith(`${classId}_${dateStr}_`) || k.startsWith(`${dateStr}_P`) || k.endsWith(`_${dateStr}`)) {
+                        const rec = history[k];
+                        if (rec) {
+                            if (rec.isHoliday) isDateHoliday = true;
+                            if (rec.attendance && Object.keys(rec.attendance).length > 0) {
+                                matchingRecords.push(rec);
+                            }
+                        }
                     }
                 }
 
+                if (isDateHoliday) continue;
+
+                // Total Working Days count strictly based on semester start and end dates
+                workingDays++;
+
                 roster.forEach(student => {
-                    // If no record exists at all for this session, we assume present (default behaviour in old system)
-                    const status = attendanceMap[student.rollNo];
-                    if (status === 'absent') {
+                    let isAbsent = false;
+                    matchingRecords.forEach(rec => {
+                        if (rec.attendance) {
+                            const val = String(rec.attendance[student.rollNo] || '').trim().toLowerCase();
+                            if (val === 'absent' || val === 'ab' || val === 'a') {
+                                isAbsent = true;
+                            }
+                        }
+                    });
+                    if (isAbsent) {
                         studentStats[student.rollNo].absent++;
                     } else {
                         studentStats[student.rollNo].present++;
@@ -175,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Render Report
-            renderReport(roster, studentStats, workingDays);
+            renderReport(roster, studentStats, workingDays, start, effectiveEnd);
             
             // Store for export
             currentReportData = {
@@ -184,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 workingDays,
                 classInfo: `${data.year}_Sec${data.section}_${data.department}`,
                 start,
-                end
+                end: effectiveEnd
             };
 
             loading.style.display = 'none';
@@ -197,8 +222,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderReport(roster, studentStats, workingDays) {
+    function renderReport(roster, studentStats, workingDays, start, end) {
         summaryWorkingDays.textContent = workingDays;
+        const subEl = summaryWorkingDays.nextElementSibling;
+        if (subEl) {
+            subEl.textContent = `(From ${start} to ${end})`;
+        }
         summaryTotalStudents.textContent = roster.length;
 
         let totalClassPercentSum = 0;
@@ -222,12 +251,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="font-family: monospace; font-weight: 600;">${student.rollNo}</td>
                     <td>${student.name}</td>
                     <td>${workingDays}</td>
+                    <td style="font-weight: 600; color: var(--success);">${stats.present}</td>
+                    <td style="font-weight: 600; color: ${stats.absent > 0 ? 'var(--danger)' : 'var(--text-muted)'};">${stats.absent}</td>
                     <td style="font-weight: 700; color: ${isGood ? 'var(--success)' : 'var(--danger)'};">${percent}%</td>
                 </tr>
             `;
         });
 
-        tableBody.innerHTML = html || '<tr><td colspan="5" style="text-align: center;">No data found.</td></tr>';
+        tableBody.innerHTML = html || '<tr><td colspan="7" style="text-align: center;">No data found.</td></tr>';
 
         const avg = roster.length > 0 ? Math.round(totalClassPercentSum / roster.length) : 0;
         summaryAveragePercent.textContent = `${avg}%`;
@@ -252,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         csvContent += `Class,${classInfo}\r\n`;
         csvContent += `Date Range,${start} to ${end}\r\n`;
         csvContent += `Total Working Days,${workingDays}\r\n\r\n`;
-        csvContent += "S.No,Roll Number,Student Name,Total Classes,Present,Absent,Percentage\r\n";
+        csvContent += "S.No,Roll Number,Student Name,Total Working Days,Total Present Days,Total Absent Days,Percentage\r\n";
 
         roster.forEach((student, index) => {
             const stats = studentStats[student.rollNo];
@@ -339,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         doc.rect((pageWidth - textWidth) / 2 - 5, 56, textWidth + 10, 9);
 
         // ------------------ TABLE SECTION ------------------
-        const tableColumn = ["S.No", "Roll Number", "Student Name", "Total Classes", "Present", "Absent", "% of Attendance"];
+        const tableColumn = ["S.No", "Roll Number", "Student Name", "Total Working Days", "Total Present Days", "Total Absent Days", "Percentage"];
         const tableRows = [];
 
         roster.forEach((student, index) => {
@@ -380,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 0: { cellWidth: 15 }, // S.No
                 1: { cellWidth: 35, fontStyle: 'bold' }, // Roll Number
                 2: { halign: 'left' }, // Student Name
-                3: { cellWidth: 25 }, // Total Classes
+                3: { cellWidth: 25 }, // Total Working Days
                 4: { cellWidth: 20 }, // Present
                 5: { cellWidth: 20 }, // Absent
                 6: { cellWidth: 30, fontStyle: 'bold' } // % Attendance
@@ -421,6 +452,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         doc.save(`Semester_Report_${classInfo}_${start}_${end}.pdf`);
     }
+
+    classSelect.addEventListener('change', () => {
+        if (classSelect.value) {
+            localStorage.setItem('current_class_id', classSelect.value);
+            generateReport();
+        }
+    });
 
     generateBtn.addEventListener('click', generateReport);
     exportCsvBtn.addEventListener('click', exportToCSV);

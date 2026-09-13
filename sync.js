@@ -28,94 +28,123 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Standard official classes for all 4 years
-        const allYears = ["IV", "III", "II", "I"];
-        const allSections = ["A", "B", "C", "D"];
-        const standardClasses = [];
-        allYears.forEach(y => {
-            allSections.forEach(s => {
-                standardClasses.push({ id: `${y}_${s}`, label: `${y} Year / Section ${s} (CSE-DS)` });
-            });
-        });
+        // Fetch and listen for available classes directly from Firestore
+        let unsubscribeClasses = null;
 
-        // Fetch available classes from Firestore
-        const classesSnapshot = await db.collection('classes').get();
-        if (classDropdown) {
+        const populateClassesFromSnapshot = (classesSnapshot) => {
+            if (!classDropdown) return;
             classDropdown.innerHTML = '';
-            
+
             const isRestricted = authUser.role === 'student';
             const userClassId = (authUser.year && authUser.section) ? `${authUser.year}_${authUser.section}` : null;
-            
-            const addedIds = new Set();
 
-            // First add standard classes if not restricted to another class
-            standardClasses.forEach(sc => {
-                if (isRestricted && sc.id !== userClassId) return;
-                const opt = document.createElement('option');
-                opt.value = sc.id;
-                opt.textContent = sc.label;
-                classDropdown.appendChild(opt);
-                addedIds.add(sc.id);
+            const validDocs = [];
+            classesSnapshot.forEach(doc => {
+                const classId = doc.id;
+                if (isRestricted && userClassId && classId !== userClassId) return;
+                validDocs.push({ id: classId, data: doc.data() });
             });
 
-            // Also check localStorage custom_timetables for any custom classes
-            try {
-                const customTt = JSON.parse(localStorage.getItem('custom_timetables') || '{}');
-                Object.keys(customTt).forEach(cid => {
-                    if (addedIds.has(cid)) return;
-                    if (isRestricted && cid !== userClassId) return;
-                    const opt = document.createElement('option');
-                    opt.value = cid;
-                    opt.textContent = customTt[cid].className || `${cid.replace('_', ' ')} (CSE-DS)`;
-                    classDropdown.appendChild(opt);
-                    addedIds.add(cid);
-                });
-            } catch(e) {}
-
-            // Then add any custom classes from database
-            if (!classesSnapshot.empty) {
-                classesSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    const classId = doc.id;
-                    if (addedIds.has(classId)) return;
-                    if (isRestricted && classId !== userClassId) return;
-                    
-                    const option = document.createElement('option');
-                    option.value = classId;
-                    const branchStr = data.branch || 'CSE';
-                    const deptStr = data.department || 'DS';
-                    option.textContent = `${data.year}/${branchStr}/${deptStr}/${data.section}`;
-                    classDropdown.appendChild(option);
-                    addedIds.add(classId);
-                });
+            if (validDocs.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.disabled = true;
+                opt.selected = true;
+                opt.textContent = 'No classes available';
+                classDropdown.appendChild(opt);
+                window.currentClassId = null;
+                localStorage.removeItem('current_class_id');
+                if (typeof window.applyRemoteState === 'function') {
+                    window.applyRemoteState([], {}, '');
+                }
+                return;
             }
 
-            // Set initial selected value
-            if (userClassId && classDropdown.querySelector(`option[value="${userClassId}"]`)) {
-                classDropdown.value = userClassId;
-            } else if (localStorage.getItem('current_class_id') && classDropdown.querySelector(`option[value="${localStorage.getItem('current_class_id')}"]`)) {
-                classDropdown.value = localStorage.getItem('current_class_id');
+            // Sort classes cleanly by year and section
+            validDocs.sort((a, b) => a.id.localeCompare(b.id));
+
+            validDocs.forEach(({ id, data }) => {
+                const opt = document.createElement('option');
+                opt.value = id;
+                const yr = data.year || '';
+                const br = data.branch || 'CSE';
+                const dp = data.department || 'DS';
+                const sec = data.section || '';
+                opt.textContent = `${yr} ${br} ${dp} ${sec}`.trim() || id;
+                classDropdown.appendChild(opt);
+            });
+
+            // Select query param, previous or default class
+            let selectedClassId = null;
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryClassId = urlParams.get('class');
+            const prevClassId = localStorage.getItem('current_class_id') || window.currentClassId;
+
+            if (queryClassId && classDropdown.querySelector(`option[value="${queryClassId}"]`)) {
+                selectedClassId = queryClassId;
+            } else if (prevClassId && classDropdown.querySelector(`option[value="${prevClassId}"]`)) {
+                selectedClassId = prevClassId;
+            } else if (userClassId && classDropdown.querySelector(`option[value="${userClassId}"]`)) {
+                selectedClassId = userClassId;
             } else if (classDropdown.options.length > 0) {
-                classDropdown.value = classDropdown.options[0].value;
+                selectedClassId = classDropdown.options[0].value;
             }
 
-            classDropdown.style.display = 'inline-block';
-        }
+            if (selectedClassId) {
+                classDropdown.value = selectedClassId;
+                classDropdown.style.display = 'inline-block';
+                window.currentClassId = selectedClassId;
+                if (typeof window.switchClass === 'function') {
+                    window.switchClass(selectedClassId);
+                } else {
+                    bindSnapshot(selectedClassId);
+                }
+            }
+        };
 
-        window.currentClassId = classDropdown ? classDropdown.value : "IV_A";
+        // Live classes listener from Firestore
+        unsubscribeClasses = db.collection('classes').onSnapshot((snapshot) => {
+            populateClassesFromSnapshot(snapshot);
+        }, (error) => {
+            console.error("Firestore classes query error:", error);
+            if (classDropdown) {
+                classDropdown.innerHTML = '<option value="" disabled selected>No classes available</option>';
+            }
+        });
 
-        // Function to bind snapshot listener
+        // Function to bind snapshot listener for a specific classId
         const bindSnapshot = (classId) => {
             if (unsubscribeSnapshot) unsubscribeSnapshot();
             if (unsubscribeTimetable) unsubscribeTimetable();
             
-            if (!classId) return;
+            if (!classId) {
+                if (typeof window.applyRemoteState === 'function') {
+                    window.applyRemoteState([], {}, '', '');
+                }
+                return;
+            }
             localStorage.setItem('current_class_id', classId);
             
             if (syncDot) {
                 syncDot.style.backgroundColor = '#f59e0b';
                 syncDot.title = 'Syncing timetable & class data...';
             }
+
+            function resolveClassId(rawId) {
+                if (!rawId) return '';
+                if (window.OFFICIAL_TIMETABLES && window.OFFICIAL_TIMETABLES[rawId]) return rawId;
+                const parts = rawId.split('_');
+                if (parts.length >= 2) {
+                    const yr = parts[0];
+                    const sec = parts[parts.length - 1];
+                    const shortId = `${yr}_${sec}`;
+                    if (window.OFFICIAL_TIMETABLES && window.OFFICIAL_TIMETABLES[shortId]) return shortId;
+                    return shortId;
+                }
+                return rawId;
+            }
+
+            const resolvedClassId = resolveClassId(classId);
 
             // 1. Live Timetable Sync for this classId with LocalStorage fallback
             const ttRef = db.collection('timetables').doc(classId);
@@ -125,14 +154,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!sched) {
                     try {
                         const customTt = JSON.parse(localStorage.getItem('custom_timetables') || '{}');
-                        if (customTt[classId] && customTt[classId].schedule && Object.keys(customTt[classId].schedule).length > 0) {
-                            sched = customTt[classId].schedule;
+                        const cTt = customTt[classId] || customTt[resolvedClassId];
+                        if (cTt && cTt.schedule && Object.keys(cTt.schedule).length > 0) {
+                            sched = cTt.schedule;
                         }
                     } catch (e) {}
                 }
 
-                if (!sched && window.OFFICIAL_TIMETABLES && window.OFFICIAL_TIMETABLES[classId]) {
-                    sched = window.OFFICIAL_TIMETABLES[classId].schedule;
+                if (!sched && window.OFFICIAL_TIMETABLES) {
+                    const off = window.OFFICIAL_TIMETABLES[classId] || window.OFFICIAL_TIMETABLES[resolvedClassId];
+                    if (off && off.schedule) {
+                        sched = off.schedule;
+                        // Auto-seed to Firestore if missing so it is permanently stored in Cloud
+                        if (!ttDoc.exists && typeof db !== 'undefined') {
+                            db.collection('timetables').doc(classId).set({
+                                classId: classId,
+                                className: off.className || classId,
+                                classIncharge: off.classIncharge || '',
+                                mentors: off.mentors || [],
+                                schedule: off.schedule,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }, { merge: true }).catch(() => {});
+                        }
+                    }
                 }
 
                 window.currentTimetable = sched || {};
@@ -146,12 +190,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 let sched = null;
                 try {
                     const customTt = JSON.parse(localStorage.getItem('custom_timetables') || '{}');
-                    if (customTt[classId] && customTt[classId].schedule && Object.keys(customTt[classId].schedule).length > 0) {
-                        sched = customTt[classId].schedule;
+                    const cTt = customTt[classId] || customTt[resolvedClassId];
+                    if (cTt && cTt.schedule && Object.keys(cTt.schedule).length > 0) {
+                        sched = cTt.schedule;
                     }
                 } catch (e) {}
-                if (!sched && window.OFFICIAL_TIMETABLES && window.OFFICIAL_TIMETABLES[classId]) {
-                    sched = window.OFFICIAL_TIMETABLES[classId].schedule;
+                if (!sched && window.OFFICIAL_TIMETABLES) {
+                    const off = window.OFFICIAL_TIMETABLES[classId] || window.OFFICIAL_TIMETABLES[resolvedClassId];
+                    if (off && off.schedule) {
+                        sched = off.schedule;
+                    }
                 }
                 window.currentTimetable = sched || {};
                 window.currentTimetableClassId = classId;
@@ -163,11 +211,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // 2. Class Roster Sync
             const docRef = db.collection('classes').doc(classId);
             unsubscribeSnapshot = docRef.onSnapshot((doc) => {
+                // Guard: Discard snapshot if user has switched to a different class
+                if (doc.id !== window.currentClassId) return;
+
                 if (doc.exists) {
                     const data = doc.data();
                     const branchStr = data.branch || 'CSE';
                     const deptStr = data.department || 'DS';
-                    const fullClassName = `${data.year}/${branchStr}/${deptStr}/${data.section}`;
+                    const fullClassName = (data.year && data.section) ? `${data.year}/${branchStr}/${deptStr}/${data.section}` : doc.id;
                     localStorage.setItem('current_class_name', fullClassName);
                     localStorage.setItem('current_class_year', data.year || '');
                     localStorage.setItem('current_class_section', data.section || '');
@@ -175,16 +226,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.setItem('current_class_branch', branchStr);
 
                     if (typeof window.applyRemoteState === 'function') {
-                        window.applyRemoteState(data.roster, data.history || {}, fullClassName);
+                        window.applyRemoteState(data.roster || [], data.history || {}, fullClassName, classId);
                     }
                     if (syncDot) {
                         syncDot.style.backgroundColor = '#10b981';
                         syncDot.title = 'Cloud Sync Active (Live)';
                     }
                 } else {
+                    // Class document does not exist yet or was deleted
+                    if (typeof window.applyRemoteState === 'function') {
+                        window.applyRemoteState([], {}, classId, classId);
+                    }
                     if (syncDot) {
                         syncDot.style.backgroundColor = '#10b981';
-                        syncDot.title = 'Timetable Ready (Local Roster)';
+                        syncDot.title = 'Cloud Sync Active (New Class)';
                     }
                 }
             }, (error) => {
@@ -192,21 +247,20 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         };
 
-        window.switchClass = (classId) => {
-            window.currentClassId = classId;
-            bindSnapshot(classId);
-        };
+        window.bindClassSnapshot = bindSnapshot;
 
         // Listen for dropdown changes
         if (classDropdown) {
             classDropdown.addEventListener('change', (e) => {
-                window.currentClassId = e.target.value;
-                bindSnapshot(window.currentClassId);
+                const newClassId = e.target.value;
+                if (typeof window.switchClass === 'function') {
+                    window.switchClass(newClassId);
+                } else {
+                    window.currentClassId = newClassId;
+                    bindSnapshot(newClassId);
+                }
             });
         }
-
-        // Initial bind
-        bindSnapshot(window.currentClassId);
 
       } catch (error) {
         console.error("Error setting up Firestore listener:", error);
@@ -220,27 +274,32 @@ document.addEventListener('DOMContentLoaded', () => {
             unsubscribeTimetable();
             unsubscribeTimetable = null;
         }
+        if (typeof unsubscribeClasses === 'function') {
+            unsubscribeClasses();
+            unsubscribeClasses = null;
+        }
     }
   });
 
   // Function to upload data to Cloud Firestore, called from app.js
   window.uploadStateToCloud = async (roster, history) => {
-    const user = auth.currentUser;
-    if (!user || !window.currentClassId) return;
+    if (!window.currentClassId || window.isLoadingRoster) return;
+    if (!Array.isArray(roster)) return;
 
     if (syncDot) syncDot.style.backgroundColor = '#f59e0b'; // syncing
 
     try {
-      await db.collection('classes').doc(window.currentClassId).set({
-        roster: roster,
-        history: history,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-
-      // Note: syncDot turns green again via onSnapshot listener automatically
+      if (typeof db !== 'undefined') {
+        await db.collection('classes').doc(window.currentClassId).set({
+          roster: roster,
+          history: history,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
     } catch (error) {
       console.error("Error uploading to Firestore:", error);
       if (syncDot) syncDot.style.backgroundColor = '#ef4444'; // error
     }
   };
 });
+

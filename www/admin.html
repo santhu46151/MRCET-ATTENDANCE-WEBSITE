@@ -7,40 +7,125 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Admin Portal Styling */
+    <style>
+        /* Admin Portal Modern Colorful Dynamic Styling */
+        :root {
+            --admin-primary: #6366f1;
+            --admin-primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+            --admin-card-bg: rgba(30, 41, 59, 0.72);
+            --admin-card-border: rgba(255, 255, 255, 0.1);
+            --admin-glow: rgba(99, 102, 241, 0.18);
+        }
+
+        .admin-title-gradient {
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 45%, #f472b6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        /* KPI Stat Cards */
+        .kpi-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .kpi-stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-lg);
+            padding: 1.15rem 1.35rem;
+            display: flex;
+            align-items: center;
+            gap: 1.15rem;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(12px);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+
+        .kpi-stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: var(--admin-primary-gradient);
+            opacity: 0.85;
+        }
+
+        .kpi-icon-wrap {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            flex-shrink: 0;
+        }
+
+        .kpi-stat-info h3 {
+            margin: 0;
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+
+        .kpi-stat-info p {
+            margin: 0.15rem 0 0 0;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Navigation Tabs */
         .admin-nav-tabs {
             display: flex;
-            gap: 0.5rem;
+            gap: 0.6rem;
             flex-wrap: wrap;
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid var(--card-border);
-            padding-bottom: 0.5rem;
+            margin-bottom: 1.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 0.75rem;
         }
 
         .tab-btn {
-            background: transparent;
-            border: none;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
             color: var(--text-secondary);
-            font-size: 0.95rem;
+            font-size: 0.92rem;
             font-weight: 600;
-            padding: 0.6rem 1.2rem;
-            border-radius: var(--radius-sm);
+            padding: 0.65rem 1.25rem;
+            border-radius: var(--radius-md);
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.55rem;
             transition: var(--transition);
         }
 
         .tab-btn:hover {
             color: var(--primary);
-            background: var(--primary-light);
+            background: rgba(99, 102, 241, 0.08);
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-1px);
         }
 
         .tab-btn.active {
             color: #ffffff;
-            background: var(--primary);
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
         }
 
         .tab-pane {
@@ -53,7 +138,7 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
+            from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
@@ -62,26 +147,27 @@
             border: 1px solid var(--card-border);
             border-radius: var(--radius-lg);
             padding: 1.75rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.75rem;
             box-shadow: var(--shadow-sm);
             backdrop-filter: var(--backdrop-blur);
+            position: relative;
         }
 
         .admin-card h2 {
             margin-top: 0;
-            margin-bottom: 0.5rem;
-            font-size: 1.25rem;
+            margin-bottom: 0.4rem;
+            font-size: 1.3rem;
             font-weight: 700;
             color: var(--text-primary);
             display: flex;
             align-items: center;
-            gap: 0.6rem;
+            gap: 0.65rem;
         }
 
         .admin-card p.subtitle {
             color: var(--text-muted);
             font-size: 0.88rem;
-            margin-bottom: 1.25rem;
+            margin-bottom: 1.35rem;
         }
 
         .user-table {
@@ -94,17 +180,20 @@
             text-align: left;
             border-bottom: 1px solid var(--card-border);
             color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 0.88rem;
         }
 
         .user-table th {
             color: var(--text-primary);
             font-weight: 700;
-            background: rgba(0, 0, 0, 0.02);
+            background: rgba(255, 255, 255, 0.03);
+            text-transform: uppercase;
+            font-size: 0.78rem;
+            letter-spacing: 0.04em;
         }
 
         .user-table tr:hover {
-            background: rgba(79, 70, 229, 0.03);
+            background: rgba(99, 102, 241, 0.04);
         }
 
         .form-grid {
@@ -129,7 +218,7 @@
 
         .form-group input, 
         .form-group select {
-            padding: 0.55rem 0.85rem;
+            padding: 0.6rem 0.9rem;
             border-radius: var(--radius-sm);
             border: 1px solid var(--card-border);
             background: var(--bg-secondary);
@@ -146,58 +235,165 @@
             box-shadow: 0 0 0 3px var(--primary-light);
         }
 
+        /* Animated Upload Dropzone */
         .upload-dropzone {
-            border: 2px dashed var(--card-border);
-            border-radius: var(--radius-md);
-            padding: 1.5rem;
+            border: 2px dashed rgba(99, 102, 241, 0.35);
+            border-radius: var(--radius-lg);
+            padding: 1.85rem 1.25rem;
             text-align: center;
-            background: var(--bg-secondary);
+            background: rgba(99, 102, 241, 0.03);
             cursor: pointer;
-            transition: var(--transition);
+            transition: all 0.25s ease;
+            position: relative;
         }
 
         .upload-dropzone:hover {
             border-color: var(--primary);
-            background: var(--primary-light);
+            background: rgba(99, 102, 241, 0.08);
+            transform: scale(1.005);
         }
 
         .status-badge {
             display: inline-flex;
             align-items: center;
-            gap: 0.35rem;
-            padding: 0.25rem 0.6rem;
+            gap: 0.4rem;
+            padding: 0.3rem 0.75rem;
             border-radius: var(--radius-full);
-            font-size: 0.75rem;
+            font-size: 0.78rem;
             font-weight: 700;
+            letter-spacing: 0.02em;
         }
 
-        .status-badge.success { background: var(--success-bg); color: var(--success); }
-        .status-badge.warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-        .status-badge.info { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+        .status-badge.success { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .status-badge.warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .status-badge.info { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
+        .status-badge.danger { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        /* Timetable Weekly Matrix Visual Card Grid */
+        .weekly-grid-container {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(160px, 1fr));
+            gap: 0.75rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+        }
+
+        .day-column {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            padding: 0.75rem;
+            min-width: 160px;
+        }
+
+        .day-column-header {
+            font-weight: 800;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--primary);
+            text-align: center;
+            padding-bottom: 0.6rem;
+            margin-bottom: 0.6rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .period-card-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            padding: 0.55rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s;
+            border-left: 3px solid var(--primary);
+        }
+
+        .period-card-item:hover {
+            transform: translateX(2px);
+            border-color: var(--primary);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .period-card-item.lab {
+            border-left-color: #a855f7;
+            background: rgba(168, 85, 247, 0.06);
+        }
+
+        .period-card-item.tech {
+            border-left-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.06);
+        }
+
+        .period-card-item.security {
+            border-left-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.06);
+        }
+
+        .period-card-item.tutorial {
+            border-left-color: #06b6d4;
+            background: rgba(6, 182, 212, 0.06);
+        }
+
+        /* Modal Viewer Overlay */
+        .timetable-modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 1.5rem;
+        }
+
+        .timetable-modal-dialog {
+            background: var(--bg-primary);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: var(--radius-xl);
+            width: 100%;
+            max-width: 1180px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            padding: 2rem;
+        }
+
+        @keyframes modalPop {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
     </style>
 </head>
 <body>
     <div class="bg-glow"></div>
     <div class="bg-glow-2"></div>
 
-    <div class="container" style="max-width: 1300px;">
+    <div class="container" style="max-width: 1350px; padding-top: 1.5rem;">
         <!-- Admin Header -->
-        <header class="glass-panel" id="main-header" style="margin-bottom: 1.5rem; padding: 1.25rem 1.75rem;">
+        <header class="glass-panel" id="main-header" style="margin-bottom: 1.5rem; padding: 1.25rem 2rem; border: 1px solid rgba(255, 255, 255, 0.12);">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 1rem;">
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <button class="btn btn-outline btn-sm" onclick="window.location.href='login.html'" style="padding: 0.4rem 0.65rem;" title="Back to Login">
+                <div style="display: flex; align-items: center; gap: 1.25rem;">
+                    <button class="btn btn-outline btn-sm" onclick="window.location.href='login.html'" style="padding: 0.45rem 0.75rem;" title="Back to Login">
                         <i class="fas fa-arrow-left"></i>
                     </button>
                     <div>
-                        <h1 style="margin: 0; font-size: 1.75rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <i class="fas fa-shield-alt" style="color: var(--primary);"></i> Admin Portal
+                        <h1 style="margin: 0; font-size: 1.85rem; display: flex; align-items: center; gap: 0.65rem;">
+                            <i class="fas fa-shield-alt" style="color: var(--primary);"></i>
+                            <span class="admin-title-gradient">Admin Command Center</span>
                         </h1>
-                        <p style="margin: 0.15rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Malla Reddy College of Engineering and Technology</p>
+                        <p style="margin: 0.2rem 0 0 0; font-size: 0.88rem; color: var(--text-muted); font-weight: 500;">
+                            Malla Reddy College of Engineering and Technology (MRCET)
+                        </p>
                     </div>
                 </div>
 
-                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <a href="index.html?from=admin" class="btn btn-primary" style="font-size: 0.88rem;">
+                <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <a href="index.html" class="btn btn-outline" style="font-size: 0.88rem; color: var(--primary); border-color: rgba(99, 102, 241, 0.4); display: inline-flex; align-items: center; gap: 0.45rem;">
+                        <i class="fas fa-calendar-alt"></i> View Timetable in Dashboard
+                    </a>
+                    <a href="index.html?from=admin" class="btn btn-primary" style="font-size: 0.88rem; display: inline-flex; align-items: center; gap: 0.45rem; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);">
                         <i class="fas fa-clipboard-check"></i> Attendance Dashboard
                     </a>
                     <button class="btn btn-outline" id="logout-btn" style="font-size: 0.88rem;" title="Logout">
@@ -206,6 +402,49 @@
                 </div>
             </div>
         </header>
+
+        <!-- KPI Summary Statistics Ribbon -->
+        <div class="kpi-stats-grid">
+            <div class="kpi-stat-card">
+                <div class="kpi-icon-wrap" style="background: rgba(99, 102, 241, 0.15); color: #818cf8;">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <div class="kpi-stat-info">
+                    <h3 id="stat-total-classes">--</h3>
+                    <p>Total Classes</p>
+                </div>
+            </div>
+            <div class="kpi-stat-card">
+                <div class="kpi-icon-wrap" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                    <i class="fas fa-calendar-alt"></i>
+                </div>
+                <div class="kpi-stat-info">
+                    <h3 id="stat-total-timetables">--</h3>
+                    <p>Active Timetables</p>
+                </div>
+            </div>
+            <div class="kpi-stat-card">
+                <div class="kpi-icon-wrap" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+                <div class="kpi-stat-info">
+                    <h3 id="stat-total-students">--</h3>
+                    <p>Enrolled Students</p>
+                </div>
+            </div>
+            <div class="kpi-stat-card">
+                <div class="kpi-icon-wrap" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+                    <i class="fas fa-database"></i>
+                </div>
+                <div class="kpi-stat-info">
+                    <h3 style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem;">
+                        <span style="width: 10px; height: 10px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px #10b981; display: inline-block;"></span>
+                        Live
+                    </h3>
+                    <p>Cloud Firestore</p>
+                </div>
+            </div>
+        </div>
 
         <!-- Navigation Tabs -->
         <nav class="admin-nav-tabs" aria-label="Admin Navigation Tabs">
@@ -228,6 +467,157 @@
 
         <!-- TAB 1: CLASS TIMETABLES -->
         <div class="tab-pane active" id="tab-timetables">
+            <!-- Timetable Management Header Banner with Link to Dashboard -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-calendar-alt" style="color: var(--primary);"></i> Class Timetable Management
+                    </h3>
+                    <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                        Upload college timetable PDFs or manage periods below. Full weekly schedules are viewable directly in the Attendance Dashboard.
+                    </p>
+                </div>
+                <a href="index.html" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 700; background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                    <i class="fas fa-desktop"></i> View Timetable in Dashboard
+                </a>
+            </div>
+
+            <!-- 2. UPLOAD CLASS TIMETABLE (PDF) SECTION -->
+            <section class="admin-card" style="border: 2px solid rgba(16, 185, 129, 0.35); background: linear-gradient(145deg, rgba(16, 185, 129, 0.04), rgba(99, 102, 241, 0.02)); margin-bottom: 1.75rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 0.75rem;">
+                    <div>
+                        <h2><i class="fas fa-file-pdf" style="color: #ef4444;"></i> Upload Class Timetable (PDF)</h2>
+                        <p class="subtitle">Upload an official college timetable PDF. The system automatically reads all days, periods, course codes, and faculty assignments accurately into the live timetable.</p>
+                    </div>
+                    <span class="status-badge info" id="pdf-upload-status-badge">
+                        <i class="fas fa-info-circle"></i> Ready for Upload
+                    </span>
+                </div>
+
+                <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; align-items: start; margin-bottom: 1.25rem;">
+                    <div class="form-group">
+                        <label><i class="fas fa-graduation-cap"></i> Target Class</label>
+                        <select id="pdf-tt-class">
+                            <option value="AUTO">-- Auto-detect from PDF --</option>
+                            <optgroup label="IV Year CSE(DS)">
+                                <option value="IV_D" selected>IV Year - Section D</option>
+                                <option value="IV_A">IV Year - Section A</option>
+                                <option value="IV_B">IV Year - Section B</option>
+                                <option value="IV_C">IV Year - Section C</option>
+                            </optgroup>
+                            <optgroup label="III Year CSE(DS)">
+                                <option value="III_A">III Year - Section A</option>
+                                <option value="III_B">III Year - Section B</option>
+                                <option value="III_C">III Year - Section C</option>
+                                <option value="III_D">III Year - Section D</option>
+                            </optgroup>
+                        </select>
+                        <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.25rem; display: block;">
+                            If "Auto-detect" is chosen, the parser will read the class header from the PDF.
+                        </small>
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label><i class="fas fa-file-upload"></i> Timetable PDF Document</label>
+                        <div class="upload-dropzone" id="pdf-tt-dropzone" style="cursor: pointer; padding: 1.75rem 1.25rem;">
+                            <input type="file" id="pdf-tt-file" accept=".pdf" style="display: none;">
+                            <div id="pdf-dropzone-content">
+                                <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary); margin-bottom: 0.5rem; display: block;"></i>
+                                <div style="font-weight: 700; font-size: 1rem; color: var(--text-primary);">
+                                    Click to browse or Drag & Drop Timetable PDF
+                                </div>
+                                <p style="color: var(--text-muted); font-size: 0.82rem; margin: 0.25rem 0 0 0;">
+                                    Supports MRCET weekly timetable PDFs (Monday–Saturday, Periods 1–6). Max 15MB.
+                                </p>
+                            </div>
+                            <div id="pdf-file-details" style="display: none; align-items: center; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
+                                <i class="fas fa-file-pdf" style="font-size: 2rem; color: #ef4444;"></i>
+                                <div style="text-align: left;">
+                                    <div id="pdf-filename" style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">filename.pdf</div>
+                                    <div id="pdf-filesize" style="font-size: 0.8rem; color: var(--text-muted);">0 KB</div>
+                                </div>
+                                <button type="button" class="btn btn-outline btn-sm" id="btn-remove-pdf" style="margin-left: 1rem; padding: 0.3rem 0.6rem; color: var(--danger); border-color: var(--danger-border);" title="Remove file">
+                                    <i class="fas fa-times"></i> Change File
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                    <button class="btn btn-primary" id="btn-parse-pdf-tt" style="font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.75rem;" disabled>
+                        <i class="fas fa-wand-magic-sparkles"></i> Parse Timetable PDF
+                    </button>
+                    <button class="btn btn-outline" id="btn-load-sample-pdf-tt" style="font-size: 0.88rem; display: inline-flex; align-items: center; gap: 0.4rem;">
+                        <i class="fas fa-file-invoice"></i> Load Sample PDF Timetable (IV-D)
+                    </button>
+                </div>
+
+                <!-- Parsed Timetable Preview Container (Visible after parsing) -->
+                <div id="pdf-tt-preview-card" style="display: none; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px dashed var(--card-border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                                Parsed Timetable Preview: <span id="preview-class-label" style="color: var(--primary);">IV Year - Section D</span>
+                            </h3>
+                            <p style="margin: 0.2rem 0 0 0; font-size: 0.82rem; color: var(--text-muted);">
+                                Review the extracted schedule below. You can inspect or edit individual periods before confirming.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; align-items: center;">
+                            <button class="btn btn-primary" id="btn-confirm-save-pdf-tt" style="font-weight: 700; background: var(--success); border-color: var(--success); display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.5rem;">
+                                <i class="fas fa-save"></i> Confirm & Save to Database
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Post-Save Success Links Ribbon -->
+                    <div id="pdf-save-success-box" style="display: none; padding: 1rem 1.25rem; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: var(--radius-md); margin-bottom: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-check-double" style="font-size: 1.5rem; color: var(--success);"></i>
+                                <div>
+                                    <strong style="color: var(--success); font-size: 0.95rem;">Timetable Saved to Firestore!</strong>
+                                    <div style="font-size: 0.82rem; color: var(--text-secondary);">The schedule is live across the Attendance Dashboard and all attendance reports.</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+                                <a id="pdf-link-dashboard" href="index.html" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    <i class="fas fa-clipboard-check"></i> Open Timetable Space in Dashboard
+                                </a>
+                                <a id="pdf-link-monthly" href="monthly-report.html" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    <i class="fas fa-calendar-alt"></i> Generate Monthly Report
+                                </a>
+                                <a id="pdf-link-weekly" href="weekly-report.html" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    <i class="fas fa-calendar-week"></i> Generate Weekly Report
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preview Table Matrix -->
+                    <div class="table-responsive" style="overflow-x: auto; max-height: 480px; border-radius: var(--radius-sm); border: 1px solid var(--card-border);">
+                        <table class="user-table" id="pdf-preview-table" style="font-size: 0.82rem; min-width: 900px;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 100px;">Day</th>
+                                    <th>Period 1<br><span style="font-weight: 400; font-size: 0.72rem; opacity: 0.8;">09:30 - 10:20</span></th>
+                                    <th>Period 2<br><span style="font-weight: 400; font-size: 0.72rem; opacity: 0.8;">10:20 - 11:10</span></th>
+                                    <th>Period 3<br><span style="font-weight: 400; font-size: 0.72rem; opacity: 0.8;">11:20 - 12:10</span></th>
+                                    <th>Period 4<br><span style="font-weight: 400; font-size: 0.72rem; opacity: 0.8;">12:50 - 13:50</span></th>
+                                    <th>Period 5<br><span style="font-weight: 400; font-size: 0.72rem; opacity: 0.8;">13:50 - 14:50</span></th>
+                                    <th>Period 6<br><span style="font-weight: 400; font-size: 0.72rem; opacity: 0.8;">14:50 - 15:50</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdf-preview-tbody">
+                                <!-- Generated rows for Monday through Saturday -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
             <!-- Manual Add / Edit Period Section -->
             <section class="admin-card">
                 <h2><i class="fas fa-plus-circle" style="color: var(--primary);"></i> Add / Edit Timetable Period</h2>
@@ -237,10 +627,18 @@
                     <div class="form-group">
                         <label><i class="fas fa-graduation-cap"></i> Target Class</label>
                         <select id="manual-tt-class">
-                            <option value="IV_A">IV Year - Section A</option>
-                            <option value="IV_B">IV Year - Section B</option>
-                            <option value="IV_C">IV Year - Section C</option>
-                            <option value="IV_D" selected>IV Year - Section D</option>
+                            <optgroup label="IV Year CSE(DS)">
+                                <option value="IV_A">IV Year - Section A</option>
+                                <option value="IV_B">IV Year - Section B</option>
+                                <option value="IV_C">IV Year - Section C</option>
+                                <option value="IV_D" selected>IV Year - Section D</option>
+                            </optgroup>
+                            <optgroup label="III Year CSE(DS)">
+                                <option value="III_A">III Year - Section A</option>
+                                <option value="III_B">III Year - Section B</option>
+                                <option value="III_C">III Year - Section C</option>
+                                <option value="III_D">III Year - Section D</option>
+                            </optgroup>
                         </select>
                     </div>
 
@@ -290,6 +688,9 @@
                     </button>
                     <button class="btn btn-outline" id="btn-seed-iv-tt" style="font-size: 0.9rem; font-weight: 600; padding: 0.65rem 1.5rem; display: inline-flex; align-items: center; gap: 0.5rem;" title="Load official IV Year A, B, C, D timetables">
                         <i class="fas fa-magic"></i> Quick Load Sample (IV Year CSE-DS)
+                    </button>
+                    <button class="btn btn-outline" id="btn-seed-iii-tt" style="font-size: 0.9rem; font-weight: 600; padding: 0.65rem 1.5rem; display: inline-flex; align-items: center; gap: 0.5rem;" title="Load official III Year A, B, C, D timetables">
+                        <i class="fas fa-calendar-check"></i> Quick Load Sample (III Year CSE-DS)
                     </button>
                 </div>
             </section>
@@ -543,6 +944,18 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="firebase-init.js"></script>
+    <!-- PDF.js Engine -->
+    <script src="pdf.min.js"></script>
+    <script>
+        if (typeof pdfjsLib === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\\/script>');
+        }
+    </script>
+    <script>
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
+        }
+    </script>
     <!-- App Logic Scripts -->
     <script src="auth.js"></script>
     <script src="timetable-data.js"></script>
@@ -569,5 +982,6 @@
             });
         });
     </script>
+
 </body>
 </html>

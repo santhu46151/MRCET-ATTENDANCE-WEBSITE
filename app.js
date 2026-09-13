@@ -92,14 +92,33 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     // State Variables (Declared globally so sync.js can synchronize Firestore data in real-time)
-    roster = JSON.parse(localStorage.getItem('attendance_roster'));
     const isStudent = authManager && authManager.user && authManager.user.role === 'student';
-    if (!roster || roster.length === 0 || !roster[0] || typeof roster[0].rollNo === 'number' || !roster[0].hasOwnProperty('phone')) {
-        roster = isStudent ? [] : defaultStudents;
-        localStorage.setItem('attendance_roster', JSON.stringify(roster));
+    const userClassId = (authManager && authManager.user && authManager.user.year && authManager.user.section) ? `${authManager.user.year}_${authManager.user.section}` : null;
+    let initialClassId = localStorage.getItem('current_class_id');
+    if (isStudent && userClassId) {
+        initialClassId = userClassId;
+    }
+    if (!initialClassId) {
+        initialClassId = 'IV_D';
+    }
+    window.currentClassId = initialClassId;
+
+    // Check class-scoped cache
+    const scopedRoster = JSON.parse(localStorage.getItem('attendance_roster_' + initialClassId) || 'null');
+    const scopedHistory = JSON.parse(localStorage.getItem('attendance_history_' + initialClassId) || 'null');
+
+    if (scopedRoster && Array.isArray(scopedRoster) && scopedRoster.length > 0) {
+        roster = scopedRoster;
+        window.isLoadingRoster = false;
+    } else if (initialClassId === 'IV_D' && !isStudent) {
+        roster = defaultStudents;
+        window.isLoadingRoster = false;
+    } else {
+        roster = [];
+        window.isLoadingRoster = true;
     }
 
-    attendanceHistory = JSON.parse(localStorage.getItem('attendance_history')) || {};
+    attendanceHistory = scopedHistory || JSON.parse(localStorage.getItem('attendance_history')) || {};
     // Migrate legacy attendanceHistory entries
     let needsSave = false;
     Object.keys(attendanceHistory).forEach(dateKey => {
@@ -126,14 +145,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let searchQuery = '';
     
-    // Get local date in YYYY-MM-DD format
-    const todayObj = new Date();
-    const localYYYY = todayObj.getFullYear();
-    const localMM = String(todayObj.getMonth() + 1).padStart(2, '0');
-    const localDD = String(todayObj.getDate()).padStart(2, '0');
-    let selectedDate = `${localYYYY}-${localMM}-${localDD}`;
-    
-    let selectedPeriod = "1";
+    // Local timezone safe date helpers
+    function parseLocalDate(dateStr) {
+        if (!dateStr) return new Date();
+        if (dateStr instanceof Date) return dateStr;
+        const parts = String(dateStr).split('T')[0].split('-');
+        if (parts.length === 3) {
+            return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        }
+        return new Date(dateStr);
+    }
+
+    function formatLocalDate(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function isSunday(dateStr) {
+        const d = parseLocalDate(dateStr);
+        return d.getDay() === 0;
+    }
+
+    // Get initial local date in YYYY-MM-DD format
+    let selectedDate = urlParams.get('date') || formatLocalDate(new Date());
+    let selectedPeriod = urlParams.get('period') || "1";
     
     window.getCurrentClassId = function() {
         const classDropdown = document.getElementById('class-dropdown');
@@ -141,30 +178,54 @@ document.addEventListener('DOMContentLoaded', () => {
             return classDropdown.value;
         }
         if (window.currentClassId) return window.currentClassId;
-        return localStorage.getItem('current_class_id') || "IV_A";
+        return localStorage.getItem('current_class_id') || "";
     };
 
+    function resolveClassId(rawId) {
+        if (!rawId) return "";
+        const clean = String(rawId).trim();
+        if (clean.includes("III") || clean.startsWith("3")) {
+            if (clean.includes("_D") || clean.endsWith(" D") || clean.endsWith("-D")) return "III_D";
+            if (clean.includes("_C") || clean.endsWith(" C") || clean.endsWith("-C")) return "III_C";
+            if (clean.includes("_B") || clean.endsWith(" B") || clean.endsWith("-B")) return "III_B";
+            if (clean.includes("_A") || clean.endsWith(" A") || clean.endsWith("-A")) return "III_A";
+        }
+        if (clean.includes("IV") || clean.startsWith("4")) {
+            if (clean.includes("_D") || clean.endsWith(" D") || clean.endsWith("-D")) return "IV_D";
+            if (clean.includes("_C") || clean.endsWith(" C") || clean.endsWith("-C")) return "IV_C";
+            if (clean.includes("_B") || clean.endsWith(" B") || clean.endsWith("-B")) return "IV_B";
+            if (clean.includes("_A") || clean.endsWith(" A") || clean.endsWith("-A")) return "IV_A";
+        }
+        return clean;
+    }
+
     window.getCurrentTimetable = function() {
-        const classId = window.getCurrentClassId();
+        const rawClassId = window.getCurrentClassId();
+        if (!rawClassId) return {};
+        const classId = resolveClassId(rawClassId);
 
         // 1. In-memory currentTimetable (from Firestore snapshot or live update)
-        if (window.currentTimetable && Object.keys(window.currentTimetable).length > 0 && (!window.currentTimetableClassId || window.currentTimetableClassId === classId)) {
+        if (window.currentTimetable && Object.keys(window.currentTimetable).length > 0 && (!window.currentTimetableClassId || window.currentTimetableClassId === rawClassId || window.currentTimetableClassId === classId)) {
             return window.currentTimetable;
         }
 
-        // 2. LocalStorage custom_timetables (critical for newly uploaded or edited classes like III_A!)
+        // 2. LocalStorage custom_timetables
         try {
             const customTt = JSON.parse(localStorage.getItem('custom_timetables') || '{}');
-            if (customTt[classId] && customTt[classId].schedule && Object.keys(customTt[classId].schedule).length > 0) {
-                window.currentTimetable = customTt[classId].schedule;
-                window.currentTimetableClassId = classId;
-                return customTt[classId].schedule;
+            const targetEntry = customTt[rawClassId] || customTt[classId];
+            if (targetEntry && targetEntry.schedule && Object.keys(targetEntry.schedule).length > 0) {
+                window.currentTimetable = targetEntry.schedule;
+                window.currentTimetableClassId = rawClassId;
+                return targetEntry.schedule;
             }
         } catch (e) {}
 
         // 3. Official Timetables dataset
-        if (window.OFFICIAL_TIMETABLES && window.OFFICIAL_TIMETABLES[classId] && window.OFFICIAL_TIMETABLES[classId].schedule) {
-            return window.OFFICIAL_TIMETABLES[classId].schedule;
+        if (window.OFFICIAL_TIMETABLES) {
+            const official = window.OFFICIAL_TIMETABLES[rawClassId] || window.OFFICIAL_TIMETABLES[classId];
+            if (official && official.schedule) {
+                return official.schedule;
+            }
         }
 
         return {};
@@ -175,65 +236,229 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${classId}_${selectedDate}_P${selectedPeriod}`;
     }
 
+    // Helper to find any marked attendance record for this date
+    function findAnyAttendanceForDate(date, classId) {
+        if (!date) return null;
+        const targetClass = classId || window.getCurrentClassId();
+
+        // 1. Check current period key
+        const curKey = `${targetClass}_${date}_P${selectedPeriod}`;
+        if (attendanceHistory[curKey] && attendanceHistory[curKey].attendance && Object.keys(attendanceHistory[curKey].attendance).length > 0) {
+            return attendanceHistory[curKey];
+        }
+
+        // 2. Check any other period P1 to P10 for this class
+        for (let p = 1; p <= 10; p++) {
+            const k = `${targetClass}_${date}_P${p}`;
+            if (attendanceHistory[k] && attendanceHistory[k].attendance && Object.keys(attendanceHistory[k].attendance).length > 0) {
+                return attendanceHistory[k];
+            }
+        }
+
+        // 3. Check legacy period keys
+        for (let p = 1; p <= 10; p++) {
+            const k = `${date}_P${p}`;
+            if (attendanceHistory[k] && attendanceHistory[k].attendance && Object.keys(attendanceHistory[k].attendance).length > 0) {
+                return attendanceHistory[k];
+            }
+        }
+
+        // 4. Check class-date whole day key
+        const classDateKey = `${targetClass}_${date}`;
+        if (attendanceHistory[classDateKey] && attendanceHistory[classDateKey].attendance && Object.keys(attendanceHistory[classDateKey].attendance).length > 0) {
+            return attendanceHistory[classDateKey];
+        }
+
+        // 5. Check pure date key
+        if (attendanceHistory[date] && attendanceHistory[date].attendance && Object.keys(attendanceHistory[date].attendance).length > 0) {
+            return attendanceHistory[date];
+        }
+
+        // 6. Fuzzy check across all keys
+        for (const k in attendanceHistory) {
+            if (k.includes(date) && (!targetClass || k.startsWith(targetClass))) {
+                const rec = attendanceHistory[k];
+                if (rec && rec.attendance && Object.keys(rec.attendance).length > 0) {
+                    return rec;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // Automatically give attendance to all subjects/periods for today
+    window.giveAttendanceToAllSubjects = function(attendanceMap, showToast = false) {
+        if (!attendanceMap || typeof attendanceMap !== 'object') return;
+        const classId = window.getCurrentClassId();
+        if (!classId) return;
+
+        const dateObj = parseLocalDate(selectedDate);
+        const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const dayName = daysOfWeek[dateObj.getDay()];
+        const currentSchedule = window.getCurrentTimetable();
+        const dayKey = Object.keys(currentSchedule || {}).find(
+            k => k.toLowerCase() === dayName.toLowerCase()
+        );
+        const daySchedule = dayKey ? currentSchedule[dayKey] : null;
+
+        if (daySchedule && Object.keys(daySchedule).length > 0) {
+            Object.keys(daySchedule).forEach(p => {
+                const pKey = `${classId}_${selectedDate}_P${p}`;
+                const pInfo = daySchedule[p] || {};
+                attendanceHistory[pKey] = {
+                    date: selectedDate,
+                    classId: classId,
+                    period: String(p),
+                    isHoliday: false,
+                    attendance: { ...attendanceMap },
+                    subjectName: pInfo.subjectName || (attendanceHistory[pKey] ? attendanceHistory[pKey].subjectName : `Period ${p}`),
+                    subjectCode: pInfo.subjectCode || (attendanceHistory[pKey] ? attendanceHistory[pKey].subjectCode : 'Core'),
+                    faculty: pInfo.faculty || (attendanceHistory[pKey] ? attendanceHistory[pKey].faculty : 'Not Assigned')
+                };
+            });
+        } else {
+            // Default 1..6 periods if timetable schedule not configured
+            for (let p = 1; p <= 6; p++) {
+                const pKey = `${classId}_${selectedDate}_P${p}`;
+                attendanceHistory[pKey] = {
+                    date: selectedDate,
+                    classId: classId,
+                    period: String(p),
+                    isHoliday: false,
+                    attendance: { ...attendanceMap },
+                    subjectName: attendanceHistory[pKey] && attendanceHistory[pKey].subjectName ? attendanceHistory[pKey].subjectName : `Period ${p}`,
+                    subjectCode: attendanceHistory[pKey] && attendanceHistory[pKey].subjectCode ? attendanceHistory[pKey].subjectCode : 'Core',
+                    faculty: attendanceHistory[pKey] && attendanceHistory[pKey].faculty ? attendanceHistory[pKey].faculty : 'Not Assigned'
+                };
+            }
+        }
+
+        // Also save class-date key for reports
+        const classDateKey = `${classId}_${selectedDate}`;
+        attendanceHistory[classDateKey] = {
+            date: selectedDate,
+            classId: classId,
+            isHoliday: false,
+            attendance: { ...attendanceMap }
+        };
+
+        saveState();
+
+        if (showToast && typeof window.showNotificationToast === 'function') {
+            window.showNotificationToast("Attendance given to all subjects for today!", "success");
+        }
+    };
+
     function getHistoryEntry() {
         const classId = window.getCurrentClassId();
         const fullKey = `${classId}_${selectedDate}_P${selectedPeriod}`;
         if (attendanceHistory[fullKey]) return attendanceHistory[fullKey];
+
         const legacyKey = `${selectedDate}_P${selectedPeriod}`;
         if (attendanceHistory[legacyKey]) return attendanceHistory[legacyKey];
+
+        const classDateKey = `${classId}_${selectedDate}`;
+        if (attendanceHistory[classDateKey]) return attendanceHistory[classDateKey];
+
+        if (attendanceHistory[selectedDate]) return attendanceHistory[selectedDate];
+
+        // Search by subject name if period match not found
+        if (window.currentSubjectInfo && window.currentSubjectInfo.subjectName) {
+            const targetSub = window.currentSubjectInfo.subjectName.trim().toUpperCase();
+            for (const k in attendanceHistory) {
+                if (k.includes(selectedDate) && (!classId || k.startsWith(classId))) {
+                    const rec = attendanceHistory[k];
+                    if (rec && rec.subjectName && rec.subjectName.trim().toUpperCase() === targetSub) {
+                        return rec;
+                    }
+                }
+            }
+        }
+
+        // Fallback to any previous attendance record for today (gives previous attendance to all subjects)
+        const prevDayRec = findAnyAttendanceForDate(selectedDate, classId);
+        if (prevDayRec && prevDayRec.attendance && Object.keys(prevDayRec.attendance).length > 0) {
+            return prevDayRec;
+        }
+
         return null;
     }
 
-    // Helper to get active holiday object if any
+    function hasAttendanceForCurrentSession() {
+        return true;
+    }
+
+    // Helper to get active holiday object if any (Sunday is a global holiday for ALL classes)
     function getActiveHoliday() {
+        if (isSunday(selectedDate)) {
+            const d = parseLocalDate(selectedDate);
+            const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const formattedLong = `${daysOfWeek[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+            return {
+                date: selectedDate,
+                formattedDate: formattedLong,
+                reason: "Sunday - College Holiday (Closed for all classes)"
+            };
+        }
         if (window.globalHolidays) {
-            return window.globalHolidays.find(h => h.date === selectedDate) || null;
+            return window.globalHolidays.find(h => (typeof h === 'string' ? h === selectedDate : h.date === selectedDate)) || null;
         }
         return null;
     }
 
     // Helper to check if current date is holiday
     function isHolidayActive() {
-        return getActiveHoliday() !== null;
+        return isSunday(selectedDate) || getActiveHoliday() !== null;
     }
 
-    // Helper to get roster with state for selected date
+    // Helper to get roster with saved state for selected date (defaults all students to present)
     function getStudents() {
-        const entry = getHistoryEntry() || {};
-        const attendanceMap = entry.attendance || (entry.isHoliday !== undefined ? {} : entry);
-        return roster.map(student => ({
-            ...student,
-            status: entry.isHoliday ? 'present' : (attendanceMap[student.rollNo] || 'present')
-        }));
+        const entry = getHistoryEntry();
+        const attendanceMap = (entry && entry.attendance) ? entry.attendance : (entry && !entry.isHoliday ? entry : {});
+
+        return roster.map(student => {
+            let status = 'present';
+            if (entry && entry.isHoliday) {
+                status = 'present';
+            } else if (attendanceMap && attendanceMap.hasOwnProperty(student.rollNo)) {
+                status = attendanceMap[student.rollNo];
+            } else {
+                status = 'present';
+            }
+            return {
+                ...student,
+                status: status
+            };
+        });
     }
 
-    // Helper to save a student status
+    // Helper to save a student status (auto-saves and gives to all subjects)
     function setStudentStatus(rollNo, status) {
-        const key = getHistoryKey();
-        if (!attendanceHistory[key]) {
-            const existingEntry = getHistoryEntry();
-            if (existingEntry && existingEntry.attendance) {
-                attendanceHistory[key] = {
-                    isHoliday: false,
-                    attendance: { ...existingEntry.attendance }
-                };
+        if (isHolidayActive()) return;
+        const classId = window.getCurrentClassId();
+
+        // Determine base attendance map
+        let attendanceMap = {};
+        const curEntry = getHistoryEntry();
+        if (curEntry && curEntry.attendance && Object.keys(curEntry.attendance).length > 0) {
+            attendanceMap = { ...curEntry.attendance };
+        } else {
+            const prevRec = findAnyAttendanceForDate(selectedDate, classId);
+            if (prevRec && prevRec.attendance && Object.keys(prevRec.attendance).length > 0) {
+                attendanceMap = { ...prevRec.attendance };
             } else {
-                attendanceHistory[key] = { isHoliday: false, attendance: {} };
+                roster.forEach(s => {
+                    attendanceMap[s.rollNo] = 'present';
+                });
             }
         }
-        
-        // Ensure attendance object exists
-        if (!attendanceHistory[key].attendance) attendanceHistory[key].attendance = {};
-        attendanceHistory[key].attendance[rollNo] = status;
-        
-        // Save subject metadata
-        if (window.currentSubjectInfo) {
-            attendanceHistory[key].subjectName = window.currentSubjectInfo.subjectName;
-            attendanceHistory[key].subjectCode = window.currentSubjectInfo.subjectCode;
-            attendanceHistory[key].faculty = window.currentSubjectInfo.faculty;
-        }
 
-        saveState();
+        attendanceMap[rollNo] = status;
+
+        // Auto-save & give to all subjects for today
+        window.giveAttendanceToAllSubjects(attendanceMap, false);
     }
 
     // DOM Elements
@@ -267,6 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const addStudentBtn = document.getElementById('add-student-btn');
     const markAllPresentBtn = document.getElementById('mark-all-present');
     const markAllAbsentBtn = document.getElementById('mark-all-absent');
+    const saveAttendanceBtn = document.getElementById('save-attendance-btn');
     
     const addStudentModal = document.getElementById('add-student-modal');
     const modalCloseBtn = document.getElementById('modal-close-btn');
@@ -310,31 +536,132 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Save state helper
     function saveState() {
+        const classId = window.getCurrentClassId();
+        if (!classId) return;
+
+        // Never save to cloud or storage if currently loading a new class roster
+        if (window.isLoadingRoster) return;
+
+        localStorage.setItem('attendance_history_' + classId, JSON.stringify(attendanceHistory));
+        localStorage.setItem('attendance_roster_' + classId, JSON.stringify(roster));
         localStorage.setItem('attendance_history', JSON.stringify(attendanceHistory));
         localStorage.setItem('attendance_roster', JSON.stringify(roster));
         
+        const autoSaveStatus = document.getElementById('auto-save-status');
+        if (autoSaveStatus) {
+            autoSaveStatus.innerHTML = '<i class="fas fa-sync fa-spin"></i> Saving...';
+            autoSaveStatus.style.color = 'var(--primary)';
+        }
+
         // Push state changes to Cloud Firestore in the background
         if (typeof window.uploadStateToCloud === 'function') {
-            window.uploadStateToCloud(roster, attendanceHistory);
+            window.uploadStateToCloud(roster, attendanceHistory).then(() => {
+                if (autoSaveStatus) {
+                    autoSaveStatus.innerHTML = '<i class="fas fa-check-circle"></i> Auto-Saved';
+                    autoSaveStatus.style.color = 'var(--success)';
+                }
+            }).catch(() => {
+                if (autoSaveStatus) {
+                    autoSaveStatus.innerHTML = '<i class="fas fa-check-circle"></i> Saved Locally';
+                    autoSaveStatus.style.color = 'var(--warning)';
+                }
+            });
+        } else {
+            if (autoSaveStatus) {
+                autoSaveStatus.innerHTML = '<i class="fas fa-check-circle"></i> Auto-Saved';
+                autoSaveStatus.style.color = 'var(--success)';
+            }
         }
     }
 
-    let currentClassName = 'IV/CSE/DS/D';
+    let currentClassName = localStorage.getItem('current_class_name') || 'IV/CSE/DS/D';
     window.isRosterEmptyError = false;
     window.emptyRosterMessage = '';
+
+    window.getDisplayClassName = function() {
+        const classDropdown = document.getElementById('class-dropdown');
+        if (classDropdown && classDropdown.selectedIndex >= 0 && classDropdown.options[classDropdown.selectedIndex]) {
+            const text = classDropdown.options[classDropdown.selectedIndex].textContent.trim();
+            if (text && !text.includes('Loading') && !text.includes('No classes')) {
+                return text.replace(/\s+/g, '/');
+            }
+        }
+        return currentClassName || window.getCurrentClassId() || '';
+    };
+
+    window.switchClass = (newClassId) => {
+        if (!newClassId) return;
+        window.currentClassId = newClassId;
+        localStorage.setItem('current_class_id', newClassId);
+
+        // Update currentClassName immediately from dropdown if present
+        const classDropdown = document.getElementById('class-dropdown');
+        if (classDropdown && classDropdown.querySelector(`option[value="${newClassId}"]`)) {
+            const opt = classDropdown.querySelector(`option[value="${newClassId}"]`);
+            currentClassName = opt.textContent.trim().replace(/\s+/g, '/');
+            localStorage.setItem('current_class_name', currentClassName);
+        }
+
+        // Check if we have class-scoped cached roster
+        const cachedRoster = JSON.parse(localStorage.getItem('attendance_roster_' + newClassId) || 'null');
+        const cachedHistory = JSON.parse(localStorage.getItem('attendance_history_' + newClassId) || 'null');
+
+        if (cachedRoster && Array.isArray(cachedRoster) && cachedRoster.length > 0) {
+            roster = cachedRoster;
+            attendanceHistory = cachedHistory || {};
+            window.isLoadingRoster = false;
+        } else if (newClassId === 'IV_D' && (!authManager || !authManager.user || authManager.user.role !== 'student')) {
+            roster = defaultStudents;
+            attendanceHistory = cachedHistory || {};
+            window.isLoadingRoster = false;
+        } else {
+            // Put into loading state immediately so old class roster doesn't flash
+            roster = [];
+            attendanceHistory = {};
+            window.isLoadingRoster = true;
+        }
+
+        window.currentTimetable = null;
+        window.currentTimetableClassId = null;
+
+        updateStats();
+        renderRoster();
+        renderAbsenteesList();
+        renderHistoryLogs();
+        if (typeof window.triggerTimetableUpdate === 'function') {
+            window.triggerTimetableUpdate();
+        }
+
+        // Trigger Firestore bindSnapshot in sync.js
+        if (typeof window.bindClassSnapshot === 'function') {
+            window.bindClassSnapshot(newClassId);
+        }
+    };
     
     // Apply remote state from Firestore
-    window.applyRemoteState = (remoteRoster, remoteHistory, className) => {
+    window.applyRemoteState = (remoteRoster, remoteHistory, className, classId) => {
+        const activeClassId = classId || window.getCurrentClassId();
+        // Guard against race conditions if user rapidly switched to another class
+        if (classId && window.getCurrentClassId() && classId !== window.getCurrentClassId()) {
+            return;
+        }
+
+        window.isLoadingRoster = false;
         window.isRosterEmptyError = false;
         window.emptyRosterMessage = '';
-        if (remoteRoster) {
-            roster = remoteRoster;
-            localStorage.setItem('attendance_roster', JSON.stringify(roster));
+
+        roster = Array.isArray(remoteRoster) ? remoteRoster : [];
+        if (activeClassId) {
+            localStorage.setItem('attendance_roster_' + activeClassId, JSON.stringify(roster));
         }
-        if (remoteHistory) {
-            attendanceHistory = remoteHistory;
-            localStorage.setItem('attendance_history', JSON.stringify(attendanceHistory));
+        localStorage.setItem('attendance_roster', JSON.stringify(roster));
+
+        attendanceHistory = (remoteHistory && typeof remoteHistory === 'object') ? remoteHistory : {};
+        if (activeClassId) {
+            localStorage.setItem('attendance_history_' + activeClassId, JSON.stringify(attendanceHistory));
         }
+        localStorage.setItem('attendance_history', JSON.stringify(attendanceHistory));
+
         if (className) {
             currentClassName = className;
             localStorage.setItem('current_class_name', className);
@@ -352,6 +679,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderRoster();
         renderAbsenteesList();
         renderHistoryLogs();
+        if (typeof window.triggerTimetableUpdate === 'function') {
+            window.triggerTimetableUpdate();
+        }
     };
 
     window.triggerHolidayUpdate = () => {
@@ -388,8 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.triggerTimetableUpdate = () => {
         // Find subject based on day and period
-        const [y, m, d] = selectedDate.split('-').map(Number);
-        const dateObj = new Date(y, m - 1, d);
+        const dateObj = parseLocalDate(selectedDate);
         const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         const dayName = daysOfWeek[dateObj.getDay()];
         
@@ -398,19 +727,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const scheduleCount = document.getElementById('daily-schedule-count');
         const activeBanner = document.getElementById('active-subject-banner');
         const copyPrevBtn = document.getElementById('copy-prev-attendance');
-        const nextPeriodBtn = document.getElementById('btn-next-period');
         
         const classId = window.getCurrentClassId();
         const currentSchedule = window.getCurrentTimetable();
-        let classNameDisplay = classId.replace('_', ' ');
+        const resolvedId = resolveClassId(classId);
+        let classNameDisplay = classId ? classId.replace(/_/g, ' ') : 'Select a Class';
         try {
             const customTt = JSON.parse(localStorage.getItem('custom_timetables') || '{}');
-            if (customTt[classId] && customTt[classId].className) {
-                classNameDisplay = customTt[classId].className;
+            const targetEntry = customTt[classId] || customTt[resolvedId];
+            if (targetEntry && targetEntry.className) {
+                classNameDisplay = targetEntry.className;
             }
         } catch (e) {}
-        if (window.OFFICIAL_TIMETABLES && window.OFFICIAL_TIMETABLES[classId] && window.OFFICIAL_TIMETABLES[classId].className) {
-            classNameDisplay = window.OFFICIAL_TIMETABLES[classId].className;
+        if (window.OFFICIAL_TIMETABLES) {
+            const official = window.OFFICIAL_TIMETABLES[classId] || window.OFFICIAL_TIMETABLES[resolvedId];
+            if (official && official.className) {
+                classNameDisplay = official.className;
+            }
         }
 
         if (scheduleTitle) {
@@ -418,6 +751,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         window.currentSubjectInfo = null;
+
+        // Sunday is a global holiday for all classes
+        if (isSunday(selectedDate)) {
+            if (scheduleCount) scheduleCount.innerHTML = '<span style="color: var(--warning); font-weight: 800;"><i class="fas fa-umbrella-beach"></i> SUNDAY HOLIDAY</span>';
+            if (activeBanner) activeBanner.style.display = 'none';
+            if (scheduleContainer) {
+                scheduleContainer.innerHTML = '<div style="font-size: 0.92rem; font-weight: 700; color: var(--warning); padding: 0.6rem 0;"><i class="fas fa-coffee" style="margin-right: 0.4rem;"></i>Sunday — College Holiday for all classes. No attendance scheduled.</div>';
+                scheduleContainer.style.display = 'block';
+            }
+            if (copyPrevBtn) copyPrevBtn.style.display = 'none';
+            updateStats();
+            renderRoster();
+            renderAbsenteesList();
+            renderHistoryLogs();
+            return;
+        }
 
         // Case-insensitive day match in currentSchedule
         const dayKey = Object.keys(currentSchedule || {}).find(
@@ -439,8 +788,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const currentIndex = periods.indexOf(selectedPeriod);
                 const prevP = currentIndex > 0 ? periods[currentIndex - 1] : null;
-                const nextP = currentIndex < periods.length - 1 ? periods[currentIndex + 1] : null;
                 window.previousPeriodToCopy = prevP;
+
+                // If any period has attendance recorded for today, automatically give previous attendance to all scheduled periods for today
+                const dayAttendanceRec = findAnyAttendanceForDate(selectedDate, classId);
+                if (dayAttendanceRec && dayAttendanceRec.attendance && Object.keys(dayAttendanceRec.attendance).length > 0) {
+                    let hasMissing = false;
+                    periods.forEach(p => {
+                        const pKey = `${classId}_${selectedDate}_P${p}`;
+                        const legacyPKey = `${selectedDate}_P${p}`;
+                        const rec = attendanceHistory[pKey] || attendanceHistory[legacyPKey];
+                        if (!rec || !rec.attendance || Object.keys(rec.attendance).length === 0) {
+                            hasMissing = true;
+                        }
+                    });
+                    if (hasMissing) {
+                        window.giveAttendanceToAllSubjects(dayAttendanceRec.attendance, false);
+                    }
+                } else if (!isHolidayActive() && roster && roster.length > 0) {
+                    // Automatically come to the roster for the first period (all present by default)
+                    const defaultMap = {};
+                    roster.forEach(s => { defaultMap[s.rollNo] = 'present'; });
+                    window.giveAttendanceToAllSubjects(defaultMap, false);
+                }
 
                 // Count how many periods are marked vs pending
                 let markedCount = 0;
@@ -454,15 +824,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 if (scheduleCount) {
-                    scheduleCount.innerHTML = `<span style="color: var(--success);"><i class="fas fa-check-circle"></i> ${markedCount} Marked</span> • <span style="color: var(--text-muted);">${periods.length - markedCount} Pending</span>`;
+                    scheduleCount.innerHTML = `<span style="color: var(--success);"><i class="fas fa-check-circle"></i> ${markedCount} Active</span>`;
                 }
 
                 // Active Period Attendance State
-                const currentEntry = getHistoryEntry();
-                const hasCurrentAttendance = currentEntry && 
-                    currentEntry.attendance && 
-                    Object.keys(currentEntry.attendance).length > 0;
-
                 if (activeBanner) {
                     if (info) {
                         activeBanner.style.display = 'block';
@@ -473,9 +838,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; color: var(--primary);">
                                             Active Period ${selectedPeriod}
                                         </span>
-                                        ${hasCurrentAttendance 
-                                            ? '<span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(16, 185, 129, 0.2); color: var(--success); font-weight: 700;"><i class="fas fa-check"></i> Attendance Marked</span>' 
-                                            : '<span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(245, 158, 11, 0.2); color: var(--warning); font-weight: 700;"><i class="far fa-clock"></i> Not Yet Marked</span>'}
+                                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(16, 185, 129, 0.2); color: var(--success); font-weight: 700;"><i class="fas fa-check"></i> Attendance Active</span>
                                     </div>
                                     <div style="font-size: 1.08rem; font-weight: 800; color: var(--text-primary);">
                                         <i class="fas fa-book-reader" style="color: var(--primary); margin-right: 0.4rem;"></i>${info.subjectName}
@@ -487,16 +850,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     </div>
                                 </div>
                                 <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                                    ${prevP ? `
-                                        <button class="btn btn-outline" style="font-size: 0.8rem; padding: 0.35rem 0.75rem; color: var(--info); border-color: var(--info);" onclick="copyAttendanceFromPeriod('${prevP}')" title="Copy attendance from Period ${prevP}">
-                                            <i class="fas fa-copy"></i> Copy P${prevP} Attendance
-                                        </button>
-                                    ` : ''}
-                                    ${nextP ? `
-                                        <button class="btn btn-primary" style="font-size: 0.82rem; padding: 0.4rem 0.9rem; font-weight: 700; background: linear-gradient(135deg, var(--primary), #818cf8); border: none;" onclick="goToNextSubject()" title="Save Period ${selectedPeriod} and proceed to Period ${nextP}">
-                                            <i class="fas fa-forward"></i> Next Subject (P${nextP})
-                                        </button>
-                                    ` : ''}
+                                    <button class="btn btn-outline" style="font-size: 0.8rem; padding: 0.35rem 0.75rem; color: var(--primary); border-color: var(--primary);" onclick="window.goToNextSubject()" title="Go to next scheduled subject">
+                                        <i class="fas fa-arrow-right"></i> Next Subject
+                                    </button>
                                 </div>
                             </div>
                         `;
@@ -544,25 +900,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     scheduleContainer.innerHTML = html;
                     scheduleContainer.style.display = 'flex';
+                    scheduleContainer.style.gap = '0.6rem';
+                    scheduleContainer.style.overflowX = 'auto';
+                    scheduleContainer.style.padding = '4px 2px';
                 }
                 
                 // Toolbar Buttons logic
                 if (copyPrevBtn) {
-                    if (prevP) {
-                        copyPrevBtn.style.display = 'inline-flex';
-                        copyPrevBtn.innerHTML = `<i class="fas fa-copy"></i> Copy P${prevP} Attendance`;
-                    } else {
-                        copyPrevBtn.style.display = 'none';
-                    }
-                }
-
-                if (nextPeriodBtn) {
-                    if (nextP) {
-                        nextPeriodBtn.style.display = 'inline-flex';
-                        nextPeriodBtn.innerHTML = `<i class="fas fa-forward"></i> Next Subject (P${nextP})`;
-                    } else {
-                        nextPeriodBtn.style.display = 'none';
-                    }
+                    copyPrevBtn.style.display = 'none';
                 }
             } else {
                 if (scheduleCount) scheduleCount.innerHTML = '';
@@ -572,21 +917,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     scheduleContainer.style.display = 'block';
                 }
                 if (copyPrevBtn) copyPrevBtn.style.display = 'none';
-                if (nextPeriodBtn) nextPeriodBtn.style.display = 'none';
             }
         } else {
             if (scheduleCount) scheduleCount.innerHTML = '';
             if (activeBanner) activeBanner.style.display = 'none';
             if (scheduleContainer) {
-                if (dayName === 'Sunday') {
-                    scheduleContainer.innerHTML = '<span style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted); padding: 0.5rem 0;"><i class="fas fa-coffee" style="color: var(--warning); margin-right: 0.4rem;"></i>Sunday - College closed.</span>';
-                } else {
-                    scheduleContainer.innerHTML = `<span style="font-size: 0.88rem; color: var(--text-muted); padding: 0.5rem 0;"><i class="fas fa-info-circle" style="color: var(--info); margin-right: 0.4rem;"></i>No timetable uploaded for ${dayName}. Upload timetable in Admin Portal.</span>`;
-                }
+                scheduleContainer.innerHTML = `<span style="font-size: 0.88rem; color: var(--text-muted); padding: 0.5rem 0;"><i class="fas fa-info-circle" style="color: var(--info); margin-right: 0.4rem;"></i>No timetable uploaded for ${dayName}. Upload timetable in Admin Portal.</span>`;
                 scheduleContainer.style.display = 'block';
             }
             if (copyPrevBtn) copyPrevBtn.style.display = 'none';
-            if (nextPeriodBtn) nextPeriodBtn.style.display = 'none';
         }
         
         updateStats();
@@ -595,106 +934,23 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistoryLogs();
     };
     
-    // Select Period & Auto-Copy Previous Attendance to Next Subject
-    window.selectPeriod = function(p, options = {}) {
-        const targetPeriod = String(p);
-        selectedPeriod = targetPeriod;
-
+    // Select Period (Subject Selection - automatically inherits previous attendance)
+    window.selectPeriod = function(p) {
+        selectedPeriod = String(p);
         const classId = window.getCurrentClassId();
-        const currentSchedule = window.getCurrentTimetable();
-
-        // Auto-copy previous attendance if target period has NO attendance recorded yet
-        const targetKey = getHistoryKey();
-        const targetEntry = getHistoryEntry();
-        const targetHasAttendance = targetEntry && 
-            targetEntry.attendance && 
-            Object.keys(targetEntry.attendance).length > 0;
-
-        if (!targetHasAttendance && !options.skipAutoCopy) {
-            const [y, m, d] = selectedDate.split('-').map(Number);
-            const dateObj = new Date(y, m - 1, d);
-            const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-            const dayName = daysOfWeek[dateObj.getDay()];
-            
-            const dayKey = Object.keys(currentSchedule || {}).find(
-                k => k.toLowerCase() === dayName.toLowerCase()
-            );
-            const daySchedule = dayKey ? currentSchedule[dayKey] : null;
-
-            if (daySchedule) {
-                const periods = Object.keys(daySchedule).sort((a,b) => parseInt(a) - parseInt(b));
-                const targetIdx = periods.indexOf(targetPeriod);
-                
-                // Find most recent marked period earlier today
-                let sourcePeriod = null;
-                let sourceRecord = null;
-                for (let i = targetIdx - 1; i >= 0; i--) {
-                    const checkKey = `${classId}_${selectedDate}_P${periods[i]}`;
-                    const legacyKey = `${selectedDate}_P${periods[i]}`;
-                    const rec = attendanceHistory[checkKey] || attendanceHistory[legacyKey];
-                    if (rec && rec.attendance && Object.keys(rec.attendance).length > 0) {
-                        sourcePeriod = periods[i];
-                        sourceRecord = rec;
-                        break;
-                    }
-                }
-
-                if (sourcePeriod && sourceRecord) {
-                    const pInfo = daySchedule[targetPeriod] || {};
-
-                    attendanceHistory[targetKey] = {
-                        isHoliday: false,
-                        attendance: { ...sourceRecord.attendance },
-                        subjectName: pInfo.subjectName || 'Subject',
-                        subjectCode: pInfo.subjectCode || 'Core',
-                        faculty: pInfo.faculty || 'Faculty',
-                        autoCopiedFrom: sourcePeriod
-                    };
-
-                    saveState();
-                    window.showNotificationToast(`Auto-copied attendance from Period ${sourcePeriod} (${sourceRecord.subjectName || ''}). Any modifications will save for Period ${targetPeriod}.`, 'success');
-                }
+        const curKey = `${classId}_${selectedDate}_P${selectedPeriod}`;
+        if (!attendanceHistory[curKey] || !attendanceHistory[curKey].attendance || Object.keys(attendanceHistory[curKey].attendance).length === 0) {
+            const prevRec = findAnyAttendanceForDate(selectedDate, classId);
+            if (prevRec && prevRec.attendance && Object.keys(prevRec.attendance).length > 0) {
+                window.giveAttendanceToAllSubjects(prevRec.attendance, false);
             }
         }
-
         window.triggerTimetableUpdate();
     };
 
-    // Manual Copy Attendance from a specific Period
-    window.copyAttendanceFromPeriod = function(sourceP) {
-        const classId = window.getCurrentClassId();
-        const sourceKey = `${classId}_${selectedDate}_P${sourceP}`;
-        const legacySourceKey = `${selectedDate}_P${sourceP}`;
-        const sourceRecord = attendanceHistory[sourceKey] || attendanceHistory[legacySourceKey];
-        if (!sourceRecord || !sourceRecord.attendance || Object.keys(sourceRecord.attendance).length === 0) {
-            alert(`No attendance data found in Period ${sourceP} to copy.`);
-            return;
-        }
-
-        const currentKey = getHistoryKey();
-        attendanceHistory[currentKey] = {
-            isHoliday: false,
-            attendance: { ...sourceRecord.attendance }
-        };
-        if (window.currentSubjectInfo) {
-            attendanceHistory[currentKey].subjectName = window.currentSubjectInfo.subjectName;
-            attendanceHistory[currentKey].subjectCode = window.currentSubjectInfo.subjectCode;
-            attendanceHistory[currentKey].faculty = window.currentSubjectInfo.faculty;
-        }
-        saveState();
-        updateStats();
-        renderRoster();
-        renderAbsenteesList();
-        renderHistoryLogs();
-        window.triggerTimetableUpdate();
-        window.showNotificationToast(`Copied attendance from Period ${sourceP} (${sourceRecord.subjectName || ''})!`, 'success');
-    };
-
-    // Save & Go to Next Subject in Timetable
+    // Go to Next Subject in Timetable
     window.goToNextSubject = function() {
-        saveState();
-        const [y, m, d] = selectedDate.split('-').map(Number);
-        const dateObj = new Date(y, m - 1, d);
+        const dateObj = parseLocalDate(selectedDate);
         const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         const dayName = daysOfWeek[dateObj.getDay()];
         
@@ -711,8 +967,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const nextPeriod = periods[currentIndex + 1];
             window.selectPeriod(nextPeriod);
         } else {
-            alert("This is the last scheduled period for today!");
+            if (typeof window.showNotificationToast === 'function') {
+                window.showNotificationToast("This is the last scheduled period for today!", "info");
+            } else {
+                alert("This is the last scheduled period for today!");
+            }
         }
+    };
+
+    // Manual Copy Attendance from a specific Period
+    window.copyAttendanceFromPeriod = function(sourceP) {
+        const classId = window.getCurrentClassId();
+        const sourceKey = `${classId}_${selectedDate}_P${sourceP}`;
+        const legacySourceKey = `${selectedDate}_P${sourceP}`;
+        const sourceRecord = attendanceHistory[sourceKey] || attendanceHistory[legacySourceKey];
+        if (!sourceRecord || !sourceRecord.attendance || Object.keys(sourceRecord.attendance).length === 0) {
+            alert(`No attendance data found in Period ${sourceP} to copy.`);
+            return;
+        }
+
+        window.giveAttendanceToAllSubjects(sourceRecord.attendance, true);
+        updateStats();
+        renderRoster();
+        renderAbsenteesList();
+        renderHistoryLogs();
+        window.triggerTimetableUpdate();
     };
 
     window.setEmptyRosterState = function(message) {
@@ -743,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const present = activeStudents.filter(s => s.status === 'present').length;
         const absent = total - present;
-        const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+        const percentage = total > 0 ? Math.round((present / total) * 100) : 100;
 
         totalCountEl.innerText = total;
         presentCountEl.innerText = present;
@@ -764,6 +1043,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Render Student Grid
     function renderRoster() {
         gridContainer.innerHTML = '';
+
+        if (window.isLoadingRoster) {
+            gridContainer.style.display = 'grid';
+            searchFilterRow.style.display = 'none';
+            holidayBanner.style.display = 'none';
+            const displayTitle = (typeof window.getDisplayClassName === 'function' ? window.getDisplayClassName() : currentClassName) || window.getCurrentClassId() || '';
+            gridContainer.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem 1rem; color: var(--text-muted); background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md);">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2.2rem; color: var(--primary); display: block; margin-bottom: 0.75rem;"></i>
+                    <p style="font-size: 1rem; font-weight: 600;">Loading roster for ${displayTitle}...</p>
+                </div>
+            `;
+            return;
+        }
         
         if (window.isRosterEmptyError) {
             gridContainer.style.display = 'grid';
@@ -778,9 +1071,15 @@ document.addEventListener('DOMContentLoaded', () => {
             searchFilterRow.style.display = 'none';
             holidayBanner.style.display = 'flex';
             const holiday = getActiveHoliday();
-            holidayReasonText.innerText = `Reason: ${holiday ? holiday.reason : 'School Holiday'}`;
+            holidayBanner.innerHTML = `
+                <div style="font-size: 3.5rem; color: var(--warning);"><i class="fas fa-umbrella-beach"></i></div>
+                <h2 style="font-weight: 800; font-size: 1.8rem; letter-spacing: 1px; color: var(--warning); margin: 0;">HOLIDAY</h2>
+                <p style="font-size: 1.1rem; color: var(--text-primary); font-weight: 700; margin: 0.25rem 0;">${holiday && holiday.formattedDate ? holiday.formattedDate : selectedDate}</p>
+                <p id="holiday-reason-text" style="font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; max-width: 420px; line-height: 1.4; margin-top: 0.25rem;">${holiday ? holiday.reason : 'School Holiday'}</p>
+            `;
             markAllPresentBtn.disabled = true;
             markAllAbsentBtn.disabled = true;
+            if (saveAttendanceBtn) saveAttendanceBtn.disabled = true;
             return;
         }
 
@@ -789,8 +1088,10 @@ document.addEventListener('DOMContentLoaded', () => {
         holidayBanner.style.display = 'none';
         markAllPresentBtn.disabled = false;
         markAllAbsentBtn.disabled = false;
+        if (saveAttendanceBtn) saveAttendanceBtn.disabled = false;
 
         const activeStudents = getStudents();
+
         const filtered = activeStudents.filter(student => {
             const query = searchQuery.toLowerCase();
             return student.name.toLowerCase().includes(query) || 
@@ -801,10 +1102,10 @@ document.addEventListener('DOMContentLoaded', () => {
         filtered.sort((a, b) => a.rollNo.localeCompare(b.rollNo));
 
         if (filtered.length === 0) {
-            gridContainer.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: var(--text-muted);">
-                    <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
-                    No students found matching your search.
+            gridContainer.innerHTML += `
+                <div style="grid-column: 1/-1; text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+                    <i class="fas fa-users-slash" style="font-size: 2.2rem; margin-bottom: 0.5rem; display: block;"></i>
+                    ${searchQuery ? 'No students found matching your search.' : 'No students found in roster for this class. Upload roster in Admin Portal.'}
                 </div>
             `;
             return;
@@ -828,7 +1129,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Toggle student status on click
             card.addEventListener('click', () => {
-                const nextStatus = student.status === 'present' ? 'absent' : 'present';
+                if (isHolidayActive()) return;
+                const nextStatus = student.status === 'absent' ? 'present' : 'absent';
                 setStudentStatus(student.rollNo, nextStatus);
                 updateStats();
                 renderRoster();
@@ -886,7 +1188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (isHolidayActive()) {
-            absentMessageBox.value = "Holiday Mode Active";
+            absentMessageBox.value = isSunday(selectedDate) ? "Sunday - College Holiday (Closed)" : "Holiday Mode Active";
             copyMessageBtn.disabled = true;
             return;
         }
@@ -898,11 +1200,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const rollSuffixes = absentees.map(s => {
             const suffix = s.rollNo.slice(-2);
-            // If it starts with letter (e.g. K9, L0), keep it. If it is lateral entries like 15, 16, keep them.
             return suffix;
         }).join(', ');
 
-        const messageText = `${currentClassName}\n${formattedDate} Absentees :\n\n${rollSuffixes || 'None'}\n\nAbsent - ${absentCount}\nPresent - ${presentCount}\nTotal - ${total}`;
+        const displayTitle = (typeof window.getDisplayClassName === 'function' ? window.getDisplayClassName() : currentClassName) || window.getCurrentClassId() || '';
+        const messageText = `${displayTitle}\n${formattedDate} Absentees :\n\n${rollSuffixes || 'None'}\n\nAbsent - ${absentCount}\nPresent - ${presentCount}\nTotal - ${total}`;
         absentMessageBox.value = messageText;
         copyMessageBtn.disabled = false;
     }
@@ -929,20 +1231,19 @@ document.addEventListener('DOMContentLoaded', () => {
         renderRoster();
     });
 
-    // Mark All Actions
+    // Mark All Actions (auto-saves and gives to all subjects for today)
     markAllPresentBtn.addEventListener('click', () => {
-        const key = getHistoryKey();
-        attendanceHistory[key] = { isHoliday: false, attendance: {} };
-        if (window.currentSubjectInfo) {
-            attendanceHistory[key].subjectName = window.currentSubjectInfo.subjectName;
-            attendanceHistory[key].subjectCode = window.currentSubjectInfo.subjectCode;
-            attendanceHistory[key].faculty = window.currentSubjectInfo.faculty;
-        }
-        saveState();
+        if (isHolidayActive()) return;
+        const initialMap = {};
+        roster.forEach(s => {
+            initialMap[s.rollNo] = 'present';
+        });
+        window.giveAttendanceToAllSubjects(initialMap, true);
         updateStats();
         renderRoster();
         renderAbsenteesList();
         renderHistoryLogs();
+        window.triggerTimetableUpdate();
     });
 
     const copyPrevBtn = document.getElementById('copy-prev-attendance');
@@ -953,30 +1254,60 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const nextPeriodBtn = document.getElementById('btn-next-period');
-    if (nextPeriodBtn) {
-        nextPeriodBtn.addEventListener('click', () => {
-            window.goToNextSubject();
-        });
-    }
-
     markAllAbsentBtn.addEventListener('click', () => {
-        const key = getHistoryKey();
-        attendanceHistory[key] = { isHoliday: false, attendance: {} };
-        if (window.currentSubjectInfo) {
-            attendanceHistory[key].subjectName = window.currentSubjectInfo.subjectName;
-            attendanceHistory[key].subjectCode = window.currentSubjectInfo.subjectCode;
-            attendanceHistory[key].faculty = window.currentSubjectInfo.faculty;
-        }
+        if (isHolidayActive()) return;
+        const initialMap = {};
         roster.forEach(s => {
-            attendanceHistory[key].attendance[s.rollNo] = 'absent';
+            initialMap[s.rollNo] = 'absent';
         });
-        saveState();
+        window.giveAttendanceToAllSubjects(initialMap, true);
         updateStats();
         renderRoster();
         renderAbsenteesList();
         renderHistoryLogs();
+        window.triggerTimetableUpdate();
     });
+
+    // Give to All Subjects Button Handler
+    const giveAllSubjectsBtn = document.getElementById('give-all-subjects-btn');
+    if (giveAllSubjectsBtn) {
+        giveAllSubjectsBtn.addEventListener('click', () => {
+            if (isHolidayActive()) {
+                alert("Attendance cannot be recorded for Sundays or declared holidays.");
+                return;
+            }
+            const curEntry = getHistoryEntry() || findAnyAttendanceForDate(selectedDate, window.getCurrentClassId());
+            let attMap = {};
+            if (curEntry && curEntry.attendance && Object.keys(curEntry.attendance).length > 0) {
+                attMap = { ...curEntry.attendance };
+            } else {
+                roster.forEach(s => {
+                    attMap[s.rollNo] = 'present';
+                });
+            }
+            window.giveAttendanceToAllSubjects(attMap, true);
+            updateStats();
+            renderRoster();
+            renderAbsenteesList();
+            renderHistoryLogs();
+            window.triggerTimetableUpdate();
+        });
+    }
+
+    // Save Attendance fallback if clicked anywhere
+    if (saveAttendanceBtn) {
+        saveAttendanceBtn.addEventListener('click', async () => {
+            if (giveAllSubjectsBtn) {
+                giveAllSubjectsBtn.click();
+            } else {
+                saveState();
+                if (typeof window.uploadStateToCloud === 'function') {
+                    await window.uploadStateToCloud(roster, attendanceHistory);
+                }
+                window.showNotificationToast("Attendance auto-saved to Firestore!", "success");
+            }
+        });
+    }
 
     // Modal Interaction
     function toggleModal(show) {
@@ -1344,14 +1675,172 @@ document.addEventListener('DOMContentLoaded', () => {
             classDropdownEl.value = savedClassId;
         }
         classDropdownEl.addEventListener('change', (e) => {
-            window.currentClassId = e.target.value;
-            window.currentTimetable = null;
-            window.currentTimetableClassId = null;
-            localStorage.setItem('current_class_id', e.target.value);
+            const newClassId = e.target.value;
             if (typeof window.switchClass === 'function') {
-                window.switchClass(e.target.value);
+                window.switchClass(newClassId);
             }
-            window.triggerTimetableUpdate();
+        });
+    }
+
+    // ==========================================================
+    // DASHBOARD TIMETABLE MODAL VIEWER
+    // ==========================================================
+    function getDashboardSubjectCategoryClass(name) {
+        if (!name) return 'free';
+        const upper = name.toUpperCase();
+        if (upper.includes('LAB') || upper.includes('PRACTICAL') || upper.includes('WORKSHOP') || upper.includes('FSDL')) return 'lab';
+        if (upper.includes('CLOUD') || upper.includes('DEEP') || upper.includes('LEARNING') || upper.includes('DATA') || upper.includes('TECH') || upper.includes('BLOCKCHAIN')) return 'tech';
+        if (upper.includes('CYBER') || upper.includes('SECURITY') || upper.includes('NETWORK') || upper.includes('CRYPTO') || upper.includes('STORAGE')) return 'security';
+        if (upper.includes('TUTORIAL') || upper.includes('MENTOR') || upper.includes('LIBRARY') || upper.includes('SEMINAR') || upper.includes('SPORTS') || upper.includes('PROJECT')) return 'tutorial';
+        return '';
+    }
+
+    function renderDashboardWeeklyGrid(schedule, containerId, targetDay = 'ALL') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+
+        const allDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const days = (targetDay === 'ALL') ? allDays : [targetDay];
+
+        const todayObj = new Date();
+        const todayDayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][todayObj.getDay()];
+
+        days.forEach(day => {
+            const daySched = (schedule && schedule[day]) ? schedule[day] : {};
+            const col = document.createElement('div');
+            col.className = 'day-column' + (day.toLowerCase() === todayDayName.toLowerCase() ? ' today' : '');
+
+            let count = 0;
+            for (let p = 1; p <= 6; p++) {
+                if (daySched[p] && daySched[p].subjectName) count++;
+            }
+
+            let cardsHtml = '';
+            for (let p = 1; p <= 6; p++) {
+                const info = daySched[p];
+                if (info && info.subjectName) {
+                    const catClass = getDashboardSubjectCategoryClass(info.subjectName);
+                    cardsHtml += `
+                        <div class="period-card-item ${catClass}">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                                    Period ${p}
+                                </span>
+                                <span style="font-size: 0.69rem; color: var(--text-muted);">
+                                    ${info.startTime || ''} - ${info.endTime || ''}
+                                </span>
+                            </div>
+                            <div style="font-size: 0.84rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.3rem; line-height: 1.25;">
+                                ${info.subjectName}
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.73rem;">
+                                <span style="background: rgba(255,255,255,0.06); padding: 0.1rem 0.35rem; border-radius: 4px; font-family: monospace; color: var(--text-secondary); font-weight: 600;">
+                                    ${info.subjectCode || 'CORE'}
+                                </span>
+                                ${info.faculty ? `
+                                <span style="color: var(--text-secondary); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${info.faculty}">
+                                    <i class="fas fa-user-tie" style="font-size: 0.68rem; margin-right: 2px;"></i> ${info.faculty}
+                                </span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    cardsHtml += `
+                        <div class="period-card-item free">
+                            <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted);">
+                                Period ${p} &bull; Free / Break
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            col.innerHTML = `
+                <div class="day-header">
+                    <span>${day} ${day.toLowerCase() === todayDayName.toLowerCase() ? '<span style="font-size: 0.7rem; color: var(--primary); font-weight: 800; margin-left: 0.35rem;">(TODAY)</span>' : ''}</span>
+                    <span class="badge badge-info" style="font-size: 0.72rem; padding: 0.15rem 0.45rem;">${count} Periods</span>
+                </div>
+                <div class="day-periods-list">
+                    ${cardsHtml}
+                </div>
+            `;
+            container.appendChild(col);
+        });
+    }
+
+    function openDashboardTimetableModal() {
+        const overlay = document.getElementById('dashboard-timetable-modal-overlay');
+        const modalClassName = document.getElementById('dashboard-modal-tt-class-name');
+        if (!overlay) return;
+
+        const classId = window.getCurrentClassId() || 'IV_D';
+        const resolvedId = resolveClassId(classId);
+        let classNameDisplay = classId ? classId.replace(/_/g, ' ') : 'Select a Class';
+        try {
+            const customTt = JSON.parse(localStorage.getItem('custom_timetables') || '{}');
+            const targetEntry = customTt[classId] || customTt[resolvedId];
+            if (targetEntry && targetEntry.className) {
+                classNameDisplay = targetEntry.className;
+            }
+        } catch (e) {}
+        if (window.OFFICIAL_TIMETABLES) {
+            const official = window.OFFICIAL_TIMETABLES[classId] || window.OFFICIAL_TIMETABLES[resolvedId];
+            if (official && official.className) {
+                classNameDisplay = official.className;
+            }
+        }
+
+        if (modalClassName) {
+            modalClassName.textContent = `${classNameDisplay}`;
+        }
+
+        const schedule = window.getCurrentTimetable() || {};
+        const dayFilterEl = document.getElementById('dashboard-modal-tt-day-filter');
+        const selectedDay = dayFilterEl ? dayFilterEl.value : 'ALL';
+
+        renderDashboardWeeklyGrid(schedule, 'dashboard-modal-tt-grid', selectedDay);
+        overlay.style.display = 'flex';
+    }
+
+    function closeDashboardTimetableModal() {
+        const overlay = document.getElementById('dashboard-timetable-modal-overlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    // Wire Dashboard Timetable Modal events
+    const btnDashViewTt = document.getElementById('btn-dashboard-view-timetable');
+    if (btnDashViewTt) {
+        btnDashViewTt.addEventListener('click', openDashboardTimetableModal);
+    }
+
+    const btnInlineViewTt = document.getElementById('btn-inline-view-tt');
+    if (btnInlineViewTt) {
+        btnInlineViewTt.addEventListener('click', openDashboardTimetableModal);
+    }
+
+    const dashModalCloseBtn = document.getElementById('dashboard-modal-btn-close');
+    if (dashModalCloseBtn) {
+        dashModalCloseBtn.addEventListener('click', closeDashboardTimetableModal);
+    }
+
+    const dashModalOverlay = document.getElementById('dashboard-timetable-modal-overlay');
+    if (dashModalOverlay) {
+        dashModalOverlay.addEventListener('click', (e) => {
+            if (e.target === dashModalOverlay) closeDashboardTimetableModal();
+        });
+    }
+
+    const dashModalPrintBtn = document.getElementById('dashboard-modal-btn-print');
+    if (dashModalPrintBtn) {
+        dashModalPrintBtn.addEventListener('click', () => window.print());
+    }
+
+    const dashModalDayFilter = document.getElementById('dashboard-modal-tt-day-filter');
+    if (dashModalDayFilter) {
+        dashModalDayFilter.addEventListener('change', () => {
+            const schedule = window.getCurrentTimetable() || {};
+            renderDashboardWeeklyGrid(schedule, 'dashboard-modal-tt-grid', dashModalDayFilter.value);
         });
     }
 

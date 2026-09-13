@@ -10,6 +10,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
+
     <!-- App Configuration and Auth -->
     <script src="auth.js"></script>
     <style>
@@ -209,6 +215,12 @@
         <section class="controls-panel glass-panel">
             <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <label for="class-select" style="font-weight: 700; font-size: 0.9rem; color: var(--text-secondary);">Select Class:</label>
+                    <select id="class-select" style="border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); outline: none; cursor: pointer;">
+                        <option value="">Loading classes...</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
                     <label for="month-picker" style="font-weight: 700; font-size: 0.9rem; color: var(--text-secondary);">Select Month:</label>
                     <input type="month" id="month-picker" style="border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); outline: none; cursor: pointer;">
                 </div>
@@ -236,7 +248,7 @@
 
     <!-- Script to calculate and draw grid -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             // Dark theme detection (applies to page background but keeps printable report page white)
             const isDarkMode = localStorage.getItem('theme') === 'dark';
             if (isDarkMode) {
@@ -244,44 +256,70 @@
             }
 
             const monthPicker = document.getElementById('month-picker');
+            const classSelect = document.getElementById('class-select');
+            const reportsContainer = document.getElementById('reports-container');
+
+            // Timezone-safe local date formatting helpers
+            function formatLocalDate(d) {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            }
 
             // Parse selected date/month from URL params or default to current month
             const urlParams = new URLSearchParams(window.location.search);
             const dateQuery = urlParams.get('date');
-            let initialDate = dateQuery ? new Date(dateQuery) : new Date();
-            if (isNaN(initialDate.getTime())) {
-                initialDate = new Date();
+            let initialDate = new Date();
+            if (dateQuery) {
+                const p = dateQuery.split('-').map(Number);
+                if (p.length === 3) {
+                    initialDate = new Date(p[0], p[1] - 1, p[2]);
+                }
             }
 
             const currentYYYY = initialDate.getFullYear();
             const currentMM = String(initialDate.getMonth() + 1).padStart(2, '0');
             monthPicker.value = `${currentYYYY}-${currentMM}`;
 
+            let currentClassId = urlParams.get('class') || localStorage.getItem('current_class_id') || '';
+            const initialAuth = getAuthUser();
+            if (initialAuth && (initialAuth.role === 'student' || initialAuth.role === 'Student')) {
+                const sYear = String(initialAuth.year || '').trim();
+                const sSec = String(initialAuth.section || '').trim();
+                if (initialAuth.classId) {
+                    currentClassId = initialAuth.classId;
+                } else if (sYear && sSec) {
+                    currentClassId = `${sYear}_${sSec}`;
+                }
+            }
+            let currentClassData = {};
+            let roster = [];
+            let history = {};
+            let globalHolidays = [];
+            let unsubscribeClassListener = null;
+
+            // Helper to get month name
+            function getMonthName(monthIndex) {
+                const months = [
+                    "January", "February", "March", "April", "May", "June", 
+                    "July", "August", "September", "October", "November", "December"
+                ];
+                return months[monthIndex];
+            }
+
             // Function to resolve current section info dynamically
             function getSectionDetails() {
-                let className = localStorage.getItem('current_class_name');
-                let year = localStorage.getItem('current_class_year');
-                let section = localStorage.getItem('current_class_section');
-                let dept = localStorage.getItem('current_class_dept');
-                let branch = localStorage.getItem('current_class_branch');
+                let year = currentClassData.year;
+                let section = currentClassData.section;
+                let dept = currentClassData.department || 'DS';
+                let branch = currentClassData.branch || 'CSE';
 
-                let authUser = null;
-                try {
-                    authUser = (typeof authManager !== 'undefined' && authManager.user) ? authManager.user : JSON.parse(localStorage.getItem('authUser') || 'null');
-                } catch(e) {}
-
-                if (authUser) {
-                    if (!section && authUser.section) section = authUser.section;
-                    if (!year && authUser.year) year = authUser.year;
-                }
-
-                if (className) {
-                    const parts = className.split('/');
-                    if (parts.length >= 4) {
+                if (!year || !section) {
+                    if (currentClassId && currentClassId.includes('_')) {
+                        const parts = currentClassId.split('_');
                         year = year || parts[0];
-                        branch = branch || parts[1];
-                        dept = dept || parts[2];
-                        section = section || parts[3];
+                        section = section || parts[1];
                     }
                 }
 
@@ -307,59 +345,150 @@
                 };
             }
 
-            // Load Data from LocalStorage (synced by auth/sync manager API)
-            let roster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
-            let history = JSON.parse(localStorage.getItem('attendance_history')) || {};
-            let globalHolidays = JSON.parse(localStorage.getItem('global_holidays')) || [];
-
-            // Set up local polling update listener to reflect edits dynamically
-            let lastDataHash = JSON.stringify(roster) + JSON.stringify(history);
-            setInterval(() => {
-                const newRoster = JSON.parse(localStorage.getItem('attendance_roster')) || [];
-                const newHistory = JSON.parse(localStorage.getItem('attendance_history')) || {};
-                const currentHash = JSON.stringify(newRoster) + JSON.stringify(newHistory);
+            // Helper to find daily records across single day key or period keys
+            function getDayRecord(dateKey) {
+                const parts = dateKey.split('-').map(Number);
+                const dObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                const isSun = dObj.getDay() === 0;
                 
-                if (currentHash !== lastDataHash) {
-                    lastDataHash = currentHash;
-                    roster = newRoster;
-                    history = newHistory;
-                    globalHolidays = JSON.parse(localStorage.getItem('global_holidays')) || [];
+                // 1. Sunday check
+                if (isSun) {
+                    return { isSunday: true, isHoliday: true, holidayReason: "Sunday", attendance: {}, hasActualAttendance: false, studentStatus: {} };
+                }
+
+                // 2. Global holiday check
+                const globalHol = globalHolidays.find(h => {
+                    if (typeof h === 'string') return h === dateKey;
+                    return h && (h.date === dateKey || h.id === dateKey);
+                });
+                if (globalHol) {
+                    return { isSunday: false, isHoliday: true, holidayReason: (globalHol && globalHol.reason) ? globalHol.reason : "Holiday", attendance: {}, hasActualAttendance: false, studentStatus: {} };
+                }
+
+                // 3. Find ALL matching keys in Firestore history for this dateKey
+                const keys = Object.keys(history || {});
+                const matchingKeys = keys.filter(k => {
+                    if (k === dateKey) return true;
+                    if (k === `${currentClassId}_${dateKey}`) return true;
+                    if (k.startsWith(`${currentClassId}_${dateKey}_`)) return true;
+                    if (k.startsWith(`${dateKey}_P`)) return true;
+                    if (k.endsWith(`_${dateKey}`)) return true;
                     
-                    // Preserve scroll position
-                    const scrollY = window.scrollY;
-                    const scrollXs = Array.from(document.querySelectorAll('.report-wrapper div[style*="overflow-x"]')).map(el => el.scrollLeft);
-                    
-                    buildMonthlyGrid();
-                    
-                    // Restore scroll position
-                    window.scrollTo(0, scrollY);
-                    Array.from(document.querySelectorAll('.report-wrapper div[style*="overflow-x"]')).forEach((el, idx) => {
-                        if (scrollXs[idx] !== undefined) el.scrollLeft = scrollXs[idx];
+                    // Match class prefix variation if classId is IV_D or IV_CSE_DS_D
+                    const altClass = currentClassId.includes('_') ? currentClassId.replace(/_CSE_DS/g, '') : currentClassId;
+                    if (altClass && (k === `${altClass}_${dateKey}` || k.startsWith(`${altClass}_${dateKey}_`))) return true;
+
+                    // Match date with standard delimiters
+                    if (k.includes(dateKey)) {
+                        const re = new RegExp(`(^|_)${dateKey}(_|$|P)`);
+                        if (re.test(k)) return true;
+                    }
+
+                    // Check if record has date field matching dateKey
+                    const rec = history[k];
+                    if (rec && typeof rec === 'object') {
+                        if (rec.date === dateKey) return true;
+                        if (rec.date && typeof rec.date.toDate === 'function') {
+                            const d = rec.date.toDate();
+                            const y = d.getFullYear();
+                            const m = String(d.getMonth() + 1).padStart(2, '0');
+                            const day = String(d.getDate()).padStart(2, '0');
+                            if (`${y}-${m}-${day}` === dateKey) return true;
+                        }
+                    }
+                    return false;
+                });
+
+                if (matchingKeys.length === 0) {
+                    return null; // Genuinely no session conducted on this date
+                }
+
+                let hasActualAttendance = false;
+                let isRecordedHoliday = false;
+                let holidayReason = "";
+                const studentStatus = {};
+
+                // Default all students in roster to 'present' for this conducted instructional day
+                if (Array.isArray(roster)) {
+                    roster.forEach(s => {
+                        if (s && s.rollNo) {
+                            studentStatus[s.rollNo.trim().toUpperCase()] = 'present';
+                        }
                     });
                 }
-            }, 3000);
 
-            // Helper to format Date to YYYY-MM-DD
-            function getFormattedKey(year, month, day) {
-                const m = String(month).padStart(2, '0');
-                const d = String(day).padStart(2, '0');
-                return `${year}-${m}-${d}`;
+                matchingKeys.forEach(pk => {
+                    const pRec = history[pk];
+                    if (!pRec) return;
+
+                    if (pRec.isHoliday) {
+                        isRecordedHoliday = true;
+                        holidayReason = pRec.holidayReason || holidayReason || "Holiday";
+                    }
+
+                    if (pRec.attendance && typeof pRec.attendance === 'object') {
+                        const attKeys = Object.keys(pRec.attendance);
+                        if (attKeys.length > 0) {
+                            hasActualAttendance = true;
+                            attKeys.forEach(roll => {
+                                const normRoll = String(roll).trim().toUpperCase();
+                                const val = String(pRec.attendance[roll]).trim().toLowerCase();
+                                if (val === 'absent' || val === 'ab' || val === 'a') {
+                                    studentStatus[normRoll] = 'absent';
+                                } else if (val === 'leave' || val === 'l') {
+                                    if (studentStatus[normRoll] !== 'absent') {
+                                        studentStatus[normRoll] = 'leave';
+                                    }
+                                } else if (val === 'present' || val === 'p') {
+                                    if (!studentStatus[normRoll]) {
+                                        studentStatus[normRoll] = 'present';
+                                    }
+                                }
+                            });
+                        }
+                    } else if (pRec.hasActualAttendance || pRec.period || pRec.subjectName || pRec.subjectCode) {
+                        hasActualAttendance = true;
+                    }
+                });
+
+                if (isRecordedHoliday && !hasActualAttendance) {
+                    return { isSunday: false, isHoliday: true, holidayReason: holidayReason || "Holiday", hasActualAttendance: false, studentStatus: {} };
+                }
+
+                // Conducted semester check: any weekday Mon-Sat between 2026-07-06 and today
+                const todayStr = formatLocalDate(new Date());
+                const isPastOrToday = dateKey <= todayStr;
+                const isSemesterWorkingDay = dateKey >= '2026-07-06' && isPastOrToday;
+
+                if (hasActualAttendance || isSemesterWorkingDay) {
+                    return {
+                        isSunday: false,
+                        isHoliday: false,
+                        holidayReason: "",
+                        hasActualAttendance: true,
+                        studentStatus: studentStatus
+                    };
+                }
+
+                return null;
             }
 
-            // Get month name
-            function getMonthName(monthIndex) {
-                const months = [
-                    "January", "February", "March", "April", "May", "June", 
-                    "July", "August", "September", "October", "November", "December"
-                ];
-                return months[monthIndex];
-            }
-
+            // Build Monthly Grid - Immediately rendered
             function buildMonthlyGrid() {
                 const secDetails = getSectionDetails();
                 document.title = `Monthly Attendance Report - ${secDetails.formattedSection}`;
-                const reportsContainer = document.getElementById('reports-container');
                 reportsContainer.innerHTML = '';
+
+                if (!roster || roster.length === 0) {
+                    reportsContainer.innerHTML = `
+                        <div style="text-align: center; padding: 3rem; background: white; border-radius: 8px; border: 1px solid #ccc;">
+                            <i class="fas fa-users-slash fa-3x" style="color: #94a3b8; margin-bottom: 1rem;"></i>
+                            <h3 style="color: #334155;">No students in roster for this class</h3>
+                            <p style="color: #64748b;">Please select another class or add students in the admin panel.</p>
+                        </div>
+                    `;
+                    return;
+                }
 
                 const pickerVal = monthPicker.value; // YYYY-MM
                 if (!pickerVal) return;
@@ -372,20 +501,20 @@
                 // Generate dates for the month
                 const monthDates = [];
                 for (let d = 1; d <= totalDays; d++) {
-                    const key = getFormattedKey(selectedYear, selectedMonth, d);
+                    const key = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                     const label = String(d).padStart(2, '0');
                     const dateObj = new Date(selectedYear, monthIndex, d);
                     const isSunday = dateObj.getDay() === 0;
-                    monthDates.push({ key, label, day: d, isSunday });
+                    monthDates.push({ key, label, day: d, isSunday, dateObj });
                 }
 
-                // Calculate total active school days in this month (excluding logged holidays and Sundays)
+                // Calculate total active working sessions in this month (excluding logged holidays and Sundays)
                 let schoolDaysCount = 0;
                 monthDates.forEach(col => {
-                    const record = history[col.key];
-                    const globalHol = globalHolidays.find(h => h.date === col.key);
+                    const record = getDayRecord(col.key);
+                    const globalHol = globalHolidays.find(h => (typeof h === 'string' ? h === col.key : (h && (h.date === col.key || h.id === col.key))));
                     const isHoliday = col.isSunday || (record && record.isHoliday) || globalHol;
-                    if (!isHoliday) {
+                    if (!isHoliday && record && record.hasActualAttendance) {
                         schoolDaysCount++;
                     }
                 });
@@ -404,10 +533,7 @@
                 const presenteesPerDay = Array(monthDates.length).fill(0);
                 let tbodyHTML = '';
 
-                // Track the holiday columns to skip rendering cells in row loops and merge them vertically
-                // Since tbody cells are normally drawn per student, to span vertically we can conditionally draw 
-                // a single <td rowspan="roster.length"> inside the FIRST row, and omit the cell for subsequent rows.
-                roster.sort((a,b) => a.rollNo.localeCompare(b.rollNo)).forEach((student, index) => {
+                roster.sort((a,b) => (a.rollNo || '').localeCompare(b.rollNo || '')).forEach((student, index) => {
                     let rowHTML = `
                         <tr>
                             <td style="background-color: #f2f2f2; font-weight: 700; text-align: center;">${index + 1}</td>
@@ -417,33 +543,35 @@
 
                     let presentCount = 0;
                     monthDates.forEach((col, colIdx) => {
-                        const record = history[col.key];
-                        const globalHol = globalHolidays.find(h => h.date === col.key);
-                        const isSunday = col.isSunday;
-                        const isLoggedHoliday = record && record.isHoliday;
+                        const record = getDayRecord(col.key);
+                        const isSunday = col.isSunday || (record && record.isSunday);
+                        const isHoliday = (record && record.isHoliday);
                         
                         if (isSunday) {
                             if (index === 0) {
-                                // Vertical text layout for SUNDAY spanning all rows
                                 rowHTML += `<td rowspan="${roster.length}" style="background-color: #fef08a; color: #4f46e5; font-weight: 700; text-align: center; font-size: 0.65rem; line-height: 1.2; padding: 2px 0; word-break: break-all; width: 25px; min-width: 25px; vertical-align: middle;">S<br>U<br>N<br>D<br>A<br>Y</td>`;
                             }
-                        } else if (isLoggedHoliday || globalHol) {
+                        } else if (isHoliday) {
                             if (index === 0) {
-                                // Vertical text layout for custom holiday reason spanning all rows
-                                const reason = (globalHol && globalHol.reason) ? globalHol.reason : (record && record.holidayReason ? record.holidayReason : "Holiday");
+                                const reason = (record && record.holidayReason) ? record.holidayReason : "Holiday";
                                 const stackedReason = reason.substring(0, 10).toUpperCase().split('').join('<br>');
                                 rowHTML += `<td rowspan="${roster.length}" style="background-color: #fef08a; color: #b45309; font-weight: 700; text-align: center; font-size: 0.65rem; line-height: 1.2; padding: 2px 0; word-break: break-all; width: 25px; min-width: 25px; vertical-align: middle;" title="${reason}">${stackedReason}</td>`;
                             }
-                        } else {
-                            const attendance = (record && record.attendance) || {};
-                            const status = attendance[student.rollNo] || "present";
-                            if (status === "present") {
+                        } else if (record && record.hasActualAttendance) {
+                            const normRoll = (student.rollNo || '').trim().toUpperCase();
+                            const status = record.studentStatus ? (record.studentStatus[normRoll] || "present") : "present";
+                            
+                            if (status === "absent") {
+                                rowHTML += `<td class="absent-cell" style="text-align: center; color: #dc2626; font-weight: 700; background-color: #fee2e2;">AB</td>`;
+                            } else if (status === "leave") {
+                                rowHTML += `<td style="text-align: center; color: #b45309; font-weight: 700; background-color: #fef3c7;">L</td>`;
+                            } else {
                                 presentCount++;
                                 presenteesPerDay[colIdx]++;
-                                rowHTML += `<td style="text-align: center;">${presentCount}</td>`;
-                            } else {
-                                rowHTML += `<td class="absent-cell" style="text-align: center;">AB</td>`;
+                                rowHTML += `<td style="text-align: center; font-weight: 600; color: #1e293b;">${presentCount}</td>`;
                             }
+                        } else {
+                            rowHTML += `<td style="text-align: center; color: #94a3b8;">-</td>`;
                         }
                     });
 
@@ -452,8 +580,8 @@
                         : "0.00";
 
                     rowHTML += `
-                        <td style="font-weight: 700; background-color: #f2f2f2; text-align: center;">${presentCount}</td>
-                        <td style="font-weight: 700; background-color: #f2f2f2; text-align: center;">${percentage}%</td>
+                        <td style="font-weight: 700; background-color: #f2f2f2; text-align: center; color: #1e293b;">${presentCount}</td>
+                        <td style="font-weight: 700; background-color: #f2f2f2; text-align: center; color: #1e293b;">${percentage}%</td>
                         </tr>
                     `;
                     tbodyHTML += rowHTML;
@@ -465,23 +593,25 @@
                         <td colspan="3" style="text-align: right; padding-right: 12px; font-weight: 800;">TOTAL PRESENTEE PER DAY</td>
                 `;
                 monthDates.forEach((col, colIdx) => {
-                    const record = history[col.key];
-                    const isSunday = col.isSunday;
-                    const isLoggedHoliday = record && record.isHoliday;
+                    const record = getDayRecord(col.key);
+                    const isSunday = col.isSunday || (record && record.isSunday);
+                    const isHoliday = (record && record.isHoliday);
+                    
                     if (isSunday) {
                         totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: #4f46e5; text-align: center; font-size: 0.6rem;">SUN</td>`;
-                    } else if (isLoggedHoliday) {
-                        const shortReason = (record.holidayReason || "HOL").substring(0, 3).toUpperCase();
-                        totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: #b45309; text-align: center; font-size: 0.6rem;" title="${record.holidayReason || 'Holiday'}">${shortReason}</td>`;
+                    } else if (isHoliday) {
+                        const shortReason = ((record && record.holidayReason) ? record.holidayReason : "HOL").substring(0, 3).toUpperCase();
+                        totalsHTML += `<td style="font-weight: 700; background-color: #fef08a; color: #b45309; text-align: center; font-size: 0.6rem;" title="${(record && record.holidayReason) || 'Holiday'}">${shortReason}</td>`;
+                    } else if (record && record.hasActualAttendance) {
+                        totalsHTML += `<td style="text-align: center; font-weight: 700;">${presenteesPerDay[colIdx]}</td>`;
                     } else {
-                        totalsHTML += `<td style="text-align: center;">${presenteesPerDay[colIdx]}</td>`;
+                        totalsHTML += `<td style="text-align: center; color: #94a3b8;">-</td>`;
                     }
                 });
                 totalsHTML += `<td colspan="2" style="background-color:#e2e8f0;"></td></tr>`;
 
                 // Assemble HTML
                 wrapper.innerHTML = `
-                    <!-- College Header Info (Image) -->
                     <div style="width: 100%; border-bottom: 2px solid #000; padding-bottom: 0.5rem; margin-bottom: 1rem; text-align: center;">
                         <img src="logo.png" alt="College Logo" style="height: 70px; margin-bottom: 0.5rem; display: block; margin-left: auto; margin-right: auto; content: url(logo.png); filter: none;" onerror="this.style.display='none'">
                         <div class="college-info">
@@ -531,6 +661,216 @@
                 reportsContainer.appendChild(wrapper);
             }
 
+            // Function to bind snapshot listener to selected class doc in Firestore (Single Source of Truth)
+            function subscribeToClass(classId) {
+                if (unsubscribeClassListener) {
+                    unsubscribeClassListener();
+                    unsubscribeClassListener = null;
+                }
+
+                if (typeof db !== 'undefined' && classId) {
+                    unsubscribeClassListener = db.collection('classes').doc(classId).onSnapshot(doc => {
+                        if (doc.exists) {
+                            currentClassData = doc.data();
+                            roster = currentClassData.roster || [];
+                            const remoteHistory = currentClassData.history || {};
+                            let localHistory = {};
+                            try { localHistory = JSON.parse(localStorage.getItem('attendance_history_' + classId) || '{}'); } catch(e){}
+                            try { const g = JSON.parse(localStorage.getItem('attendance_history') || '{}'); localHistory = { ...g, ...localHistory }; } catch(e){}
+                            history = { ...localHistory, ...remoteHistory };
+                            buildMonthlyGrid();
+                        } else {
+                            const altId = classId.includes('_CSE_DS_') ? classId.replace('_CSE_DS_', '_') : 
+                                          (classId.startsWith('IV_') ? classId.replace('IV_', 'IV_CSE_DS_') : 
+                                          (classId.startsWith('III_') ? classId.replace('III_', 'III_CSE_DS_') : null));
+                            if (altId && altId !== classId) {
+                                db.collection('classes').doc(altId).get().then(altDoc => {
+                                    if (altDoc.exists) {
+                                        currentClassData = altDoc.data();
+                                        roster = currentClassData.roster || [];
+                                        const remoteHistory = currentClassData.history || {};
+                                        let localHistory = {};
+                                        try { localHistory = JSON.parse(localStorage.getItem('attendance_history_' + altId) || '{}'); } catch(e){}
+                                        try { const g = JSON.parse(localStorage.getItem('attendance_history') || '{}'); localHistory = { ...g, ...localHistory }; } catch(e){}
+                                        history = { ...localHistory, ...remoteHistory };
+                                        buildMonthlyGrid();
+                                        return;
+                                    }
+                                    roster = [];
+                                    history = {};
+                                    buildMonthlyGrid();
+                                }).catch(() => {
+                                    roster = [];
+                                    history = {};
+                                    buildMonthlyGrid();
+                                });
+                                return;
+                            }
+                            console.warn("Class document does not exist in Firestore:", classId);
+                            roster = [];
+                            history = {};
+                            buildMonthlyGrid();
+                        }
+                    }, err => {
+                        console.error("Firestore snapshot error on class:", err);
+                    });
+                }
+            }
+
+            // Helper to get logged-in user (synchronous from cache or fallback)
+            function getAuthUser() {
+                try {
+                    if (typeof authManager !== 'undefined' && authManager.user) {
+                        return authManager.user;
+                    }
+                    const raw = localStorage.getItem('authUser');
+                    if (raw) return JSON.parse(raw);
+                } catch (e) {}
+                return null;
+            }
+
+            // Async helper to ensure user metadata (role, year, section) is fully loaded from Firestore if needed
+            async function getAuthUserAsync() {
+                let u = getAuthUser();
+                if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
+                    if (!u || !u.role || (u.role === 'student' && (!u.year || !u.section))) {
+                        try {
+                            const userDoc = await db.collection('users').doc(auth.currentUser.uid).get();
+                            if (userDoc.exists) {
+                                const d = userDoc.data();
+                                u = Object.assign({}, u || {}, d, { uid: auth.currentUser.uid, email: auth.currentUser.email });
+                                localStorage.setItem('authUser', JSON.stringify(u));
+                                if (typeof authManager !== 'undefined') authManager.user = u;
+                            }
+                        } catch (err) {
+                            console.warn("Could not fetch user metadata from Firestore:", err);
+                        }
+                    }
+                }
+                return u;
+            }
+
+            // Load Classes from Firestore
+            async function loadClasses() {
+                try {
+                    if (typeof db !== 'undefined') {
+                        // Load holidays from Firestore
+                        try {
+                            const holSnap = await db.collection('holidays').get();
+                            globalHolidays = [];
+                            holSnap.forEach(d => {
+                                const h = d.data();
+                                globalHolidays.push(h.date ? h : { date: d.id, ...h });
+                            });
+                        } catch (e) {
+                            console.warn("Could not load holidays:", e);
+                        }
+
+                        // Ensure auth user profile is resolved
+                        const currentUser = await getAuthUserAsync();
+                        const isStudentUser = currentUser && (currentUser.role === 'student' || currentUser.role === 'Student');
+
+                        // Load classes from Firestore
+                        const classesSnap = await db.collection('classes').get();
+                        classSelect.innerHTML = '';
+                        
+                        if (classesSnap.empty) {
+                            classSelect.innerHTML = '<option value="">No classes available</option>';
+                            buildMonthlyGrid();
+                            return;
+                        }
+
+                        const rawDocs = [];
+                        classesSnap.forEach(doc => rawDocs.push({ id: doc.id, data: doc.data() }));
+
+                        let docs = rawDocs;
+                        if (docs.length === 0) {
+                            classSelect.innerHTML = '<option value="">No class assigned</option>';
+                            buildMonthlyGrid();
+                            return;
+                        }
+
+                        docs.sort((a, b) => {
+                            const nameA = `${a.data.year || ''} ${a.data.section || ''}`;
+                            const nameB = `${b.data.year || ''} ${b.data.section || ''}`;
+                            return nameA.localeCompare(nameB);
+                        });
+
+                        const availableIds = [];
+                        docs.forEach(({ id, data }) => {
+                            availableIds.push(id);
+                            const opt = document.createElement('option');
+                            opt.value = id;
+                            const yr = data.year || '';
+                            const br = data.branch || 'CSE';
+                            const dp = data.department || 'DS';
+                            const sc = data.section || '';
+                            opt.textContent = `${yr} ${br} ${dp} ${sc}`.trim() || id;
+                            classSelect.appendChild(opt);
+                        });
+
+                        // Always unlocked
+                        classSelect.disabled = false;
+                        classSelect.style.cursor = 'pointer';
+                        classSelect.style.opacity = '1';
+                        classSelect.removeAttribute('title');
+                        const labelEl = document.querySelector('label[for="class-select"]');
+                        if (labelEl) {
+                            labelEl.textContent = 'Select Class:';
+                        }
+
+                        let resolvedClassId = null;
+                        // Smart class resolution: handle IV_CSE_DS_D vs IV_D, URL param, or localStorage
+                        if (currentClassId) {
+                            if (availableIds.includes(currentClassId)) {
+                                resolvedClassId = currentClassId;
+                            } else {
+                                // Try normalize: remove branch/dept e.g. IV_CSE_DS_D -> IV_D
+                                const parts = currentClassId.split('_');
+                                if (parts.length >= 2) {
+                                    const candidate = `${parts[0]}_${parts[parts.length - 1]}`;
+                                    if (availableIds.includes(candidate)) {
+                                        resolvedClassId = candidate;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Prefer student's enrolled class if available
+                        if (!resolvedClassId && isStudentUser) {
+                            const sYear = String(currentUser.year || '').trim().toUpperCase();
+                            const sSec = String(currentUser.section || '').trim().toUpperCase();
+                            const sCandidate = availableIds.find(id => id.includes(sYear) && id.includes(sSec));
+                            if (sCandidate) resolvedClassId = sCandidate;
+                        }
+
+                        // Fallback to IV_D or first available class
+                        if (!resolvedClassId) {
+                            if (availableIds.includes('IV_D')) {
+                                resolvedClassId = 'IV_D';
+                            } else if (availableIds.length > 0) {
+                                resolvedClassId = availableIds[0];
+                            }
+                        }
+
+                        currentClassId = resolvedClassId || (availableIds.length > 0 ? availableIds[0] : '');
+                        if (currentClassId) {
+                            classSelect.value = currentClassId;
+                            localStorage.setItem('current_class_id', currentClassId);
+                            subscribeToClass(currentClassId);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error loading classes from Firestore:", err);
+                }
+            }
+
+            classSelect.addEventListener('change', () => {
+                currentClassId = classSelect.value;
+                localStorage.setItem('current_class_id', currentClassId);
+                subscribeToClass(currentClassId);
+            });
+
             monthPicker.addEventListener('change', buildMonthlyGrid);
 
             // Export to Excel logic
@@ -542,7 +882,6 @@
                 const [selectedYear, selectedMonth] = pickerVal.split('-').map(Number);
                 const monthName = getMonthName(selectedMonth - 1);
 
-                // Convert HTML table to Worksheet
                 const secDetails = getSectionDetails();
                 const wb = XLSX.utils.table_to_book(table, { raw: true });
                 XLSX.writeFile(wb, `Monthly_Attendance_Report_${secDetails.formattedCode}_${monthName}_${selectedYear}.xlsx`);
@@ -550,16 +889,12 @@
 
             // Export to PDF logic
             document.getElementById('export-pdf-btn').addEventListener('click', () => {
-                const element = document.getElementById('report-container');
+                const element = document.getElementById('reports-container');
                 if (!element) return;
                 
                 const pickerVal = monthPicker.value;
                 const [selectedYear, selectedMonth] = pickerVal.split('-').map(Number);
                 const monthName = getMonthName(selectedMonth - 1);
-
-                // Temporarily hide actions for cleaner PDF
-                const actionsDiv = document.querySelector('.report-actions');
-                if(actionsDiv) actionsDiv.style.display = 'none';
 
                 const opt = {
                     margin:       0.5,
@@ -569,10 +904,7 @@
                     jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
                 };
                 
-                html2pdf().set(opt).from(element).save().then(() => {
-                    // Restore actions
-                    if(actionsDiv) actionsDiv.style.display = 'flex';
-                });
+                html2pdf().set(opt).from(element).save();
             });
 
             // Toggle Print/PDF buttons based on Native App presence
@@ -583,6 +915,15 @@
                 const pdfBtn = document.getElementById('export-pdf-btn');
                 if (pdfBtn) pdfBtn.style.display = 'inline-flex';
             }
+
+            // Listen to auth state so Firestore query runs with valid credentials
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    loadClasses();
+                } else {
+                    loadClasses(); // still attempt to load
+                }
+            });
         });
     </script>
 </body>

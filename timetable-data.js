@@ -249,5 +249,269 @@ window.OFFICIAL_TIMETABLES = {
                 6: { subjectName: "TUTORIAL", subjectCode: "TUTORIAL", faculty: "FACULTY", startTime: "14:50", endTime: "15:50" }
             }
         }
+    },
+
+    // =========================================================================
+    // III BTECH - I SEMESTER OFFICIAL TIMETABLES (2026-2027)
+    // =========================================================================
+
+    // ==========================================
+    // SECTION A : CSE(DS)-A (III Year)
+    // ==========================================
+    "III_A": {
+        classId: "III_A",
+        className: "III BTECH CSE(DS)-A",
+        classIncharge: "S THIRUPATHI - 9502288723",
+        mentors: ["S THIRUPATHI (9502288723)", "U MUKUL KUMAR (7799118580)"],
+        schedule: {
+            "Monday": {
+                1: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "P.SUJITHA / S.THIRUPATHI", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "P.SUJITHA / S.THIRUPATHI", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "P.SUJITHA / S.THIRUPATHI", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K.CHAITHANYA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y.RAJINI", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "S.THIRUPATHI", startTime: "14:50", endTime: "15:50" }
+            },
+            "Tuesday": {
+                1: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "S.THIRUPATHI", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "P.SUJITHA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "INTELLECTUAL PROPERTY RIGHTS", subjectCode: "R245A2151", faculty: "K.LAVANYA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T.RAVALI", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y.RAJINI", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "S.THIRUPATHI", startTime: "14:50", endTime: "15:50" }
+            },
+            "Wednesday": {
+                1: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "S.THIRUPATHI / Y.RAJINI", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "S.THIRUPATHI / Y.RAJINI", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "S.THIRUPATHI / Y.RAJINI", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T.RAVALI", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y.RAJINI", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K.CHAITHANYA", startTime: "14:50", endTime: "15:50" }
+            },
+            "Thursday": {
+                1: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "P.SUJITHA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y.RAJINI", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "TUTORIAL", subjectCode: "TUTORIAL", faculty: "FACULTY", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T.RAVALI", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K.CHAITHANYA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "TEST", subjectCode: "TEST", faculty: "FACULTY", startTime: "14:50", endTime: "15:50" }
+            },
+            "Friday": {
+                1: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T.RAVALI", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "S.THIRUPATHI", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y.RAJINI", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "INTELLECTUAL PROPERTY RIGHTS", subjectCode: "R245A2151", faculty: "K.LAVANYA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "P.SUJITHA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "TUTORIAL", subjectCode: "TUTORIAL", faculty: "FACULTY", startTime: "14:50", endTime: "15:50" }
+            },
+            "Saturday": {
+                1: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K.CHAITHANYA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "S.THIRUPATHI", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "P.SUJITHA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "E.KAVYA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "E.KAVYA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "E.KAVYA", startTime: "14:50", endTime: "15:50" }
+            }
+        }
+    },
+
+    // ==========================================
+    // SECTION B : CSE(DS)-B (III Year)
+    // ==========================================
+    "III_B": {
+        classId: "III_B",
+        className: "III BTECH CSE(DS)-B",
+        classIncharge: "CH. SREE VIDYA - 9989288050",
+        mentors: ["CH. SREE VIDYA (9989288050)", "P.SUJITHA (9871848155)"],
+        schedule: {
+            "Monday": {
+                1: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "CH.SREE VIDYA / E.KAVYA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "CH.SREE VIDYA / E.KAVYA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "CH.SREE VIDYA / E.KAVYA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T.RAVALI", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "A.SUSHMITHA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y.RAJINI", startTime: "14:50", endTime: "15:50" }
+            },
+            "Tuesday": {
+                1: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "CH.SREE VIDYA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "A.SUSHMITHA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "D.KAVITHA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y.RAJINI", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T.RAVALI", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "TUTORIAL", subjectCode: "TUTORIAL", faculty: "FACULTY", startTime: "14:50", endTime: "15:50" }
+            },
+            "Wednesday": {
+                1: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "A.SUSHMITHA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "D.KAVITHA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "CH.SREE VIDYA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y.RAJINI", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "TEST", subjectCode: "TEST", faculty: "FACULTY", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "TUTORIAL", subjectCode: "TUTORIAL", faculty: "FACULTY", startTime: "14:50", endTime: "15:50" }
+            },
+            "Thursday": {
+                1: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "A.SUSHMITHA / CH.SREE VIDYA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "A.SUSHMITHA / CH.SREE VIDYA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "A.SUSHMITHA / CH.SREE VIDYA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "CH.SREE VIDYA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "INTELLECTUAL PROPERTY RIGHTS", subjectCode: "R245A2151", faculty: "K.LAVANYA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y.RAJINI", startTime: "14:50", endTime: "15:50" }
+            },
+            "Friday": {
+                1: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "D.KAVITHA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "CH.SREE VIDYA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T.RAVALI", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "E.KAVYA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "E.KAVYA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "E.KAVYA", startTime: "14:50", endTime: "15:50" }
+            },
+            "Saturday": {
+                1: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "CH.SREE VIDYA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y.RAJINI", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "A.SUSHMITHA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T.RAVALI", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "D.KAVITHA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "INTELLECTUAL PROPERTY RIGHTS", subjectCode: "R245A2151", faculty: "K.LAVANYA", startTime: "14:50", endTime: "15:50" }
+            }
+        }
+    },
+
+    // ==========================================
+    // SECTION C : CSE(DS)-C (III Year)
+    // ==========================================
+    "III_C": {
+        classId: "III_C",
+        className: "III BTECH CSE(DS)-C",
+        classIncharge: "T. RAVALI - 8125475866",
+        mentors: ["T. RAVALI (8125475866)", "P.SUJITHA (9871848155)"],
+        schedule: {
+            "Monday": {
+                1: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "A. SUSHMITHA / T.RAVALI", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "A. SUSHMITHA / T.RAVALI", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "A. SUSHMITHA / T.RAVALI", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "S. THIRUPATHI", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "P. SUJITHA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K CHAITHANYA", startTime: "14:50", endTime: "15:50" }
+            },
+            "Tuesday": {
+                1: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T. RAVALI", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K CHAITHANYA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "P. SUJITHA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "S. THIRUPATHI", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "A. SUSHMITHA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "TUTORIAL", subjectCode: "TUTORIAL", faculty: "FACULTY", startTime: "14:50", endTime: "15:50" }
+            },
+            "Wednesday": {
+                1: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K CHAITHANYA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "A. SUSHMITHA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "P. SUJITHA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "S. THIRUPATHI", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T. RAVALI", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "INTELLECTUAL PROPERTY RIGHTS", subjectCode: "R245A2151", faculty: "K.LAVANYA", startTime: "14:50", endTime: "15:50" }
+            },
+            "Thursday": {
+                1: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T. RAVALI", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "S. THIRUPATHI", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "A. SUSHMITHA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "S. THIRUPATHI / BALAJI", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "S. THIRUPATHI / BALAJI", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "S. THIRUPATHI / BALAJI", startTime: "14:50", endTime: "15:50" }
+            },
+            "Friday": {
+                1: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "S. THIRUPATHI", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "P. SUJITHA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "INTELLECTUAL PROPERTY RIGHTS", subjectCode: "R245A2151", faculty: "K.LAVANYA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "A. SUSHMITHA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T. RAVALI", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "TUTORIAL", subjectCode: "TUTORIAL", faculty: "FACULTY", startTime: "14:50", endTime: "15:50" }
+            },
+            "Saturday": {
+                1: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "U.KETHANA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "U.KETHANA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "U.KETHANA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "P. SUJITHA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "TEST", subjectCode: "TEST", faculty: "FACULTY", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K CHAITHANYA", startTime: "14:50", endTime: "15:50" }
+            }
+        }
+    },
+
+    // ==========================================
+    // SECTION D : CSE(DS)-D (III Year)
+    // ==========================================
+    "III_D": {
+        classId: "III_D",
+        className: "III BTECH CSE(DS)-D",
+        classIncharge: "Y. RAJINI - 7569387953",
+        mentors: ["Y. RAJINI (7569387953)", "K.BALAJI (9347664521)"],
+        schedule: {
+            "Monday": {
+                1: { subjectName: "INTELLECTUAL PROPERTY RIGHTS", subjectCode: "R245A2151", faculty: "K.LAVANYA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y. RAJINI", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K CHAITHANYA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "P. SUJITHA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "CH. SREE VIDYA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T. RAVALI", startTime: "14:50", endTime: "15:50" }
+            },
+            "Tuesday": {
+                1: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y. RAJINI", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T. RAVALI", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K CHAITHANYA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "P. SUJITHA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "CH. SREE VIDYA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "TUTORIAL", subjectCode: "TUTORIAL", faculty: "FACULTY", startTime: "14:50", endTime: "15:50" }
+            },
+            "Wednesday": {
+                1: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "P. SUJITHA", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K CHAITHANYA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T. RAVALI", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "CH. SREE VIDYA / K. AJITH", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "CH. SREE VIDYA / K. AJITH", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "DATA WAREHOUSING AND DATA MINING LAB", subjectCode: "R245A0590", faculty: "CH. SREE VIDYA / K. AJITH", startTime: "14:50", endTime: "15:50" }
+            },
+            "Thursday": {
+                1: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y. RAJINI", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "ARTIFICIAL INTELLIGENCE", subjectCode: "R245A0513", faculty: "P. SUJITHA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "INTRODUCTION TO DATA SCIENCE", subjectCode: "R245A6707", faculty: "T. RAVALI", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "INTELLECTUAL PROPERTY RIGHTS", subjectCode: "R245A2151", faculty: "K.LAVANYA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "CH. SREE VIDYA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "TUTORIAL", subjectCode: "TUTORIAL", faculty: "FACULTY", startTime: "14:50", endTime: "15:50" }
+            },
+            "Friday": {
+                1: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "P. SUJITHA / K.AJITH", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "P. SUJITHA / K.AJITH", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "ARTIFICIAL INTELLIGENCE LAB", subjectCode: "R245A0588", faculty: "P. SUJITHA / K.AJITH", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "CH. SREE VIDYA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y. RAJINI", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "TEST", subjectCode: "TEST", faculty: "FACULTY", startTime: "14:50", endTime: "15:50" }
+            },
+            "Saturday": {
+                1: { subjectName: "DESIGN AND ANALYSIS OF ALGORITHMS", subjectCode: "R245A0506", faculty: "Y. RAJINI", startTime: "09:30", endTime: "10:20" },
+                2: { subjectName: "DATA WAREHOUSING AND DATA MINING", subjectCode: "R245A1206", faculty: "CH. SREE VIDYA", startTime: "10:20", endTime: "11:10" },
+                3: { subjectName: "ROBOTICS AND AUTOMATION", subjectCode: "R245A0351", faculty: "K CHAITHANYA", startTime: "11:20", endTime: "12:10" },
+                4: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "U.KETHANA", startTime: "12:50", endTime: "13:50" },
+                5: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "U.KETHANA", startTime: "13:50", endTime: "14:50" },
+                6: { subjectName: "PROFESSIONAL DEVELOPMENT LAB", subjectCode: "R245A6684", faculty: "U.KETHANA", startTime: "14:50", endTime: "15:50" }
+            }
+        }
     }
 };
+
+// Aliases for compound class IDs like III_CSE_DS_A, III_DS_A, etc.
+(function registerTimetableAliases() {
+    if (!window.OFFICIAL_TIMETABLES) return;
+    ["A", "B", "C", "D"].forEach(sec => {
+        if (window.OFFICIAL_TIMETABLES[`III_${sec}`]) {
+            const data = window.OFFICIAL_TIMETABLES[`III_${sec}`];
+            window.OFFICIAL_TIMETABLES[`III_CSE_DS_${sec}`] = data;
+            window.OFFICIAL_TIMETABLES[`III_DS_${sec}`] = data;
+            window.OFFICIAL_TIMETABLES[`III_CSE_${sec}`] = data;
+        }
+        if (window.OFFICIAL_TIMETABLES[`IV_${sec}`]) {
+            const data = window.OFFICIAL_TIMETABLES[`IV_${sec}`];
+            window.OFFICIAL_TIMETABLES[`IV_CSE_DS_${sec}`] = data;
+            window.OFFICIAL_TIMETABLES[`IV_DS_${sec}`] = data;
+            window.OFFICIAL_TIMETABLES[`IV_CSE_${sec}`] = data;
+        }
+    });
+})();
+

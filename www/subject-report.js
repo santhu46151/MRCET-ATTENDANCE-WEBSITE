@@ -30,12 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
         startDateInput.value = '2026-07-06';
     }
 
-    // Set saved class if exists
-    const savedClassId = localStorage.getItem('current_class_id');
-    if (savedClassId && classSelect.querySelector(`option[value="${savedClassId}"]`)) {
-        classSelect.value = savedClassId;
-    }
-
     let globalHolidays = [];
 
     // Initialize
@@ -43,180 +37,568 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             if (typeof db !== 'undefined') {
                 const holidaysSnap = await db.collection('holidays').get();
+                globalHolidays = [];
                 holidaysSnap.forEach(doc => globalHolidays.push(doc.data().date));
+
+                let currentUser = null;
+                try {
+                    if (typeof authManager !== 'undefined' && authManager.user) {
+                        currentUser = authManager.user;
+                    } else {
+                        const raw = localStorage.getItem('authUser');
+                        if (raw) currentUser = JSON.parse(raw);
+                    }
+                } catch (e) {}
+
+                if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
+                    if (!currentUser || !currentUser.role || (currentUser.role === 'student' && (!currentUser.year || !currentUser.section))) {
+                        try {
+                            const userDoc = await db.collection('users').doc(auth.currentUser.uid).get();
+                            if (userDoc.exists) {
+                                const d = userDoc.data();
+                                currentUser = Object.assign({}, currentUser || {}, d, { uid: auth.currentUser.uid, email: auth.currentUser.email });
+                                localStorage.setItem('authUser', JSON.stringify(currentUser));
+                                if (typeof authManager !== 'undefined') authManager.user = currentUser;
+                            }
+                        } catch (err) {}
+                    }
+                }
+
+                const isStudentUser = currentUser && (currentUser.role === 'student' || currentUser.role === 'Student');
+
+                const classesSnap = await db.collection('classes').get();
+                classSelect.innerHTML = '';
+                if (classesSnap.empty) {
+                    classSelect.innerHTML = '<option value="">No classes available</option>';
+                } else {
+                    const rawDocs = [];
+                    classesSnap.forEach(d => rawDocs.push({ id: d.id, data: d.data() }));
+
+                    rawDocs.sort((a, b) => {
+                        const nameA = `${a.data.year || ''} ${a.data.section || ''}`;
+                        const nameB = `${b.data.year || ''} ${b.data.section || ''}`;
+                        return nameA.localeCompare(nameB);
+                    });
+
+                    rawDocs.forEach(({ id, data }) => {
+                        const opt = document.createElement('option');
+                        opt.value = id;
+                        const yr = data.year || '';
+                        const br = data.branch || 'CSE';
+                        const dp = data.department || 'DS';
+                        const sc = data.section || '';
+                        opt.textContent = `${yr} ${br} ${dp} ${sc}`.trim() || id;
+                        classSelect.appendChild(opt);
+                    });
+
+                    // Always unlocked
+                    classSelect.disabled = false;
+                    classSelect.style.cursor = 'pointer';
+                    classSelect.style.opacity = '1';
+                    const labelEl = document.querySelector('label[for="class-select"]');
+                    if (labelEl) labelEl.innerHTML = '<i class="fas fa-graduation-cap" style="color: var(--primary);"></i> Class:';
+
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const queryClassId = urlParams.get('class');
+                    const savedClassId = localStorage.getItem('current_class_id');
+                    if (queryClassId && classSelect.querySelector(`option[value="${queryClassId}"]`)) {
+                        classSelect.value = queryClassId;
+                    } else if (savedClassId && classSelect.querySelector(`option[value="${savedClassId}"]`)) {
+                        classSelect.value = savedClassId;
+                    } else if (classSelect.options.length > 0) {
+                        classSelect.value = classSelect.options[0].value;
+                    }
+                }
             }
         } catch (e) {
-            console.warn("Could not load holidays:", e);
+            console.warn("Could not load init data:", e);
         }
 
-        populateSubjects();
+        await populateSubjects();
         generateReport();
     }
 
-    // Populate subjects based on class timetable
-    function populateSubjects() {
-        const classId = classSelect.value || "IV_D";
-        subjectSelect.innerHTML = '';
+    // ==========================================
+    // Canonical Master Subjects & Normalization
+    // ==========================================
+    const OFFICIAL_III_YEAR_SUBJECTS = [
+        { name: "DESIGN AND ANALYSIS OF ALGORITHMS", code: "R245A0506", isLab: false },
+        { name: "INTRODUCTION TO DATA SCIENCE", code: "R245A6707", isLab: false },
+        { name: "DATA WAREHOUSING AND DATA MINING", code: "R245A1206", isLab: false },
+        { name: "ARTIFICIAL INTELLIGENCE", code: "R245A0513", isLab: false },
+        { name: "ROBOTICS AND AUTOMATION", code: "R245A0351", isLab: false },
+        { name: "INTELLECTUAL PROPERTY RIGHTS", code: "R245A2151", isLab: false },
+        { name: "ARTIFICIAL INTELLIGENCE LAB", code: "R245A0588", isLab: true },
+        { name: "DATA WAREHOUSING AND DATA MINING LAB", code: "R245A0590", isLab: true },
+        { name: "PROFESSIONAL DEVELOPMENT LAB", code: "R245A6684", isLab: true }
+    ];
 
-        let schedule = {};
-        try {
-            const customTt = JSON.parse(localStorage.getItem('custom_timetables') || '{}');
-            if (customTt[classId] && customTt[classId].schedule) {
-                schedule = customTt[classId].schedule;
-            }
-        } catch(e) {}
-        if (Object.keys(schedule).length === 0 && window.OFFICIAL_TIMETABLES && window.OFFICIAL_TIMETABLES[classId]) {
-            schedule = window.OFFICIAL_TIMETABLES[classId].schedule || {};
+    const OFFICIAL_IV_YEAR_SUBJECTS = [
+        { name: "CLOUD COMPUTING", code: "R22A0522", isLab: false },
+        { name: "DEEP LEARNING", code: "R22A6605", isLab: false },
+        { name: "BLOCKCHAIN TECHNOLOGY", code: "R22A0527", isLab: false },
+        { name: "DATABASE SECURITY", code: "R22A6214", isLab: false },
+        { name: "FULL STACK DEVELOPMENT", code: "R22A0513", isLab: false },
+        { name: "FULL STACK DEVELOPMENT LAB", code: "R22A0589", isLab: true }
+    ];
+
+    function resolveClassId(rawId) {
+        if (!rawId) return "";
+        const clean = String(rawId).trim().toUpperCase();
+        if (clean.includes("III") || clean.startsWith("3")) {
+            if (clean.endsWith("_D") || clean.endsWith(" D") || clean.endsWith("-D") || clean.includes("_D_") || clean.includes("SEC D") || clean.includes("SECTION D") || clean.includes("(DS)-D") || clean.includes("DS-D")) return "III_D";
+            if (clean.endsWith("_C") || clean.endsWith(" C") || clean.endsWith("-C") || clean.includes("_C_") || clean.includes("SEC C") || clean.includes("SECTION C") || clean.includes("(DS)-C") || clean.includes("DS-C")) return "III_C";
+            if (clean.endsWith("_B") || clean.endsWith(" B") || clean.endsWith("-B") || clean.includes("_B_") || clean.includes("SEC B") || clean.includes("SECTION B") || clean.includes("(DS)-B") || clean.includes("DS-B")) return "III_B";
+            if (clean.endsWith("_A") || clean.endsWith(" A") || clean.endsWith("-A") || clean.includes("_A_") || clean.includes("SEC A") || clean.includes("SECTION A") || clean.includes("(DS)-A") || clean.includes("DS-A")) return "III_A";
+        }
+        if (clean.includes("IV") || clean.startsWith("4")) {
+            if (clean.endsWith("_D") || clean.endsWith(" D") || clean.endsWith("-D") || clean.includes("_D_") || clean.includes("SEC D") || clean.includes("SECTION D") || clean.includes("(DS)-D") || clean.includes("DS-D")) return "IV_D";
+            if (clean.endsWith("_C") || clean.endsWith(" C") || clean.endsWith("-C") || clean.includes("_C_") || clean.includes("SEC C") || clean.includes("SECTION C") || clean.includes("(DS)-C") || clean.includes("DS-C")) return "IV_C";
+            if (clean.endsWith("_B") || clean.endsWith(" B") || clean.endsWith("-B") || clean.includes("_B_") || clean.includes("SEC B") || clean.includes("SECTION B") || clean.includes("(DS)-B") || clean.includes("DS-B")) return "IV_B";
+            if (clean.endsWith("_A") || clean.endsWith(" A") || clean.endsWith("-A") || clean.includes("_A_") || clean.includes("SEC A") || clean.includes("SECTION A") || clean.includes("(DS)-A") || clean.includes("DS-A")) return "IV_A";
+        }
+        return clean;
+    }
+
+    function isThirdYearClass(id) {
+        if (!id) return false;
+        const c = String(id).toUpperCase();
+        if (c.includes("III") || c.startsWith("3") || c.includes("YEAR 3") || c.includes("3RD") || c.includes("_3_") || c.includes("-3-")) {
+            return true;
+        }
+        const sel = document.querySelector(`#class-select option[value="${id}"]`);
+        if (sel && sel.textContent) {
+            const t = sel.textContent.toUpperCase();
+            if (t.includes("III") || t.includes("3RD") || t.includes("3 YEAR") || t.includes("YEAR 3") || t.startsWith("3 ")) return true;
+        }
+        return false;
+    }
+
+    function isFourthYearClass(id) {
+        if (!id) return false;
+        if (isThirdYearClass(id)) return false;
+        const c = String(id).toUpperCase();
+        if (c.includes("IV") || c.startsWith("4") || c.includes("YEAR 4") || c.includes("4TH") || c.includes("_4_") || c.includes("-4-")) {
+            return true;
+        }
+        const sel = document.querySelector(`#class-select option[value="${id}"]`);
+        if (sel && sel.textContent) {
+            const t = sel.textContent.toUpperCase();
+            if (t.includes("IV") || t.includes("4TH") || t.includes("4 YEAR") || t.includes("YEAR 4") || t.startsWith("4 ")) return true;
+        }
+        return false;
+    }
+
+    function isIgnoredSubject(raw) {
+        if (!raw) return true;
+        const clean = String(raw).trim().toUpperCase();
+        if (clean === "TUTORIAL" || clean === "TUT" || clean === "TEST") return true;
+        if (/^PERIOD\s*\d+$/i.test(clean)) return true;
+        if (clean === "MENTORING" || clean === "SPORTS" || clean === "LIBRARY" || clean === "COUNSELING" || clean === "CRT" || clean === "APTITUDE") return true;
+        return false;
+    }
+
+    function normalizeSubjectName(raw) {
+        if (!raw) return "";
+        const clean = String(raw).trim().toUpperCase();
+
+        // Check official codes
+        if (clean === "R245A0506") return "DESIGN AND ANALYSIS OF ALGORITHMS";
+        if (clean === "R245A6707") return "INTRODUCTION TO DATA SCIENCE";
+        if (clean === "R245A1206") return "DATA WAREHOUSING AND DATA MINING";
+        if (clean === "R245A0513") return "ARTIFICIAL INTELLIGENCE";
+        if (clean === "R245A0351") return "ROBOTICS AND AUTOMATION";
+        if (clean === "R245A2151") return "INTELLECTUAL PROPERTY RIGHTS";
+        if (clean === "R245A0588") return "ARTIFICIAL INTELLIGENCE LAB";
+        if (clean === "R245A0590") return "DATA WAREHOUSING AND DATA MINING LAB";
+        if (clean === "R245A6684") return "PROFESSIONAL DEVELOPMENT LAB";
+
+        if (clean === "R22A0522") return "CLOUD COMPUTING";
+        if (clean === "R22A6605") return "DEEP LEARNING";
+        if (clean === "R22A0527") return "BLOCKCHAIN TECHNOLOGY";
+        if (clean === "R22A6214") return "DATABASE SECURITY";
+        if (clean === "R22A0513") return "FULL STACK DEVELOPMENT";
+        if (clean === "R22A0589") return "FULL STACK DEVELOPMENT LAB";
+
+        // III Year Subject Normalizations
+        if (clean.includes("ALGORITHM") || clean === "DAA" || clean.startsWith("DAA ") || clean.startsWith("DAA-") || clean.startsWith("DAA_")) {
+            return "DESIGN AND ANALYSIS OF ALGORITHMS";
+        }
+        if (clean.includes("DATA SCIENCE") || clean === "IDS" || clean.startsWith("IDS ") || clean.startsWith("IDS-") || clean === "INTRO TO DATA SCIENCE") {
+            return "INTRODUCTION TO DATA SCIENCE";
+        }
+        if ((clean.includes("DATA WAREHOUS") || clean.includes("DATA MINING") || clean === "DWDM" || clean.startsWith("DWDM ") || clean.startsWith("DWDM-")) && !clean.includes("LAB")) {
+            return "DATA WAREHOUSING AND DATA MINING";
+        }
+        if ((clean === "AI" || clean.startsWith("AI ") || clean.startsWith("AI-") || clean.includes("ARTIFICIAL INTELLIGENCE")) && !clean.includes("LAB")) {
+            return "ARTIFICIAL INTELLIGENCE";
+        }
+        if (clean.includes("ROBOTIC") || clean === "R&A" || clean === "R & A" || clean === "RA" || clean.startsWith("R&A ") || clean.startsWith("R & A ")) {
+            return "ROBOTICS AND AUTOMATION";
+        }
+        if (clean.includes("INTELLECTUAL") || clean.includes("PROPERTY RIGHTS") || clean === "IPR" || clean.startsWith("IPR ") || clean.startsWith("IPR-")) {
+            return "INTELLECTUAL PROPERTY RIGHTS";
+        }
+        if (clean.includes("AI LAB") || clean.includes("ARTIFICIAL INTELLIGENCE LAB")) {
+            return "ARTIFICIAL INTELLIGENCE LAB";
+        }
+        if (clean.includes("DWDM LAB") || (clean.includes("DATA MINING") && clean.includes("LAB")) || (clean.includes("DATA WAREHOUS") && clean.includes("LAB"))) {
+            return "DATA WAREHOUSING AND DATA MINING LAB";
+        }
+        if (clean.includes("PROFESSIONAL DEVELOPMENT") || clean.includes("PD LAB") || clean.includes("PDS LAB") || clean === "PDS" || clean === "PD" || clean.startsWith("PDS LAB") || clean.startsWith("PD LAB")) {
+            return "PROFESSIONAL DEVELOPMENT LAB";
         }
 
-        const subjectsMap = {};
-        for (const day in schedule) {
-            for (const p in schedule[day]) {
-                const item = schedule[day][p];
-                if (item && item.subjectName && item.subjectName !== 'TUTORIAL') {
-                    if (!subjectsMap[item.subjectName]) {
-                        subjectsMap[item.subjectName] = {
-                            name: item.subjectName,
-                            code: item.subjectCode || 'Core',
-                            faculty: item.faculty || 'Faculty'
-                        };
+        // IV Year Subject Normalizations
+        if (clean.includes("CLOUD COMPUTING") || clean === "CC" || clean.startsWith("CC ") || clean.startsWith("CC-")) {
+            return "CLOUD COMPUTING";
+        }
+        if (clean.includes("DEEP LEARNING") || clean === "DL" || clean.startsWith("DL ") || clean.startsWith("DL-")) {
+            return "DEEP LEARNING";
+        }
+        if (clean.includes("BLOCKCHAIN") || clean === "BT" || clean.startsWith("BT ") || clean.startsWith("BT-")) {
+            return "BLOCKCHAIN TECHNOLOGY";
+        }
+        if (clean.includes("DATABASE SECURITY") || clean === "DBS" || clean.startsWith("DBS ") || clean.startsWith("DBS-")) {
+            return "DATABASE SECURITY";
+        }
+        if ((clean.includes("FULL STACK") || clean === "FSD" || clean.startsWith("FSD ") || clean.startsWith("FSD-")) && !clean.includes("LAB")) {
+            return "FULL STACK DEVELOPMENT";
+        }
+        if ((clean.includes("FULL STACK") && clean.includes("LAB")) || clean.includes("FSD LAB") || clean.startsWith("FSD LAB")) {
+            return "FULL STACK DEVELOPMENT LAB";
+        }
+
+        return clean;
+    }
+
+    function getFacultyForSubject(classId, subjectName, schedule) {
+        const canonical = normalizeSubjectName(subjectName);
+        const resolvedId = resolveClassId(classId);
+
+        // 1. Search in current schedule
+        if (schedule) {
+            for (const d in schedule) {
+                for (const p in schedule[d]) {
+                    const itm = schedule[d][p];
+                    if (itm && normalizeSubjectName(itm.subjectName) === canonical && itm.faculty) {
+                        return itm.faculty;
                     }
                 }
             }
         }
 
-        const subjectNames = Object.keys(subjectsMap);
+        // 2. Search in official timetable for classId / resolvedId
+        if (window.OFFICIAL_TIMETABLES) {
+            const off = window.OFFICIAL_TIMETABLES[classId] || window.OFFICIAL_TIMETABLES[resolvedId];
+            if (off && off.schedule) {
+                for (const d in off.schedule) {
+                    for (const p in off.schedule[d]) {
+                        const itm = off.schedule[d][p];
+                        if (itm && normalizeSubjectName(itm.subjectName) === canonical && itm.faculty) {
+                            return itm.faculty;
+                        }
+                    }
+                }
+            }
+        }
 
-        if (subjectNames.length === 0) {
-            subjectSelect.innerHTML = `
-                <option value="FULL STACK DEVELOPMENT LAB">FULL STACK DEVELOPMENT LAB (R22A0589) [Lab - 3 Periods]</option>
-                <option value="CLOUD COMPUTING">CLOUD COMPUTING (R22A0522)</option>
-                <option value="DEEP LEARNING">DEEP LEARNING (R22A6605)</option>
-                <option value="FULL STACK DEVELOPMENT">FULL STACK DEVELOPMENT (R22A0513)</option>
-                <option value="DATABASE SECURITY">DATABASE SECURITY (R22A6214)</option>
-                <option value="BLOCKCHAIN TECHNOLOGY">BLOCKCHAIN TECHNOLOGY (R22A0527)</option>
-            `;
+        // 3. Fallback standard master faculty map
+        const DEFAULT_FACULTY = {
+            "III_A": {
+                "DESIGN AND ANALYSIS OF ALGORITHMS": "Y.RAJINI",
+                "INTRODUCTION TO DATA SCIENCE": "T.RAVALI",
+                "DATA WAREHOUSING AND DATA MINING": "S.THIRUPATHI",
+                "ARTIFICIAL INTELLIGENCE": "P.SUJITHA",
+                "ROBOTICS AND AUTOMATION": "K.CHAITHANYA",
+                "INTELLECTUAL PROPERTY RIGHTS": "K.LAVANYA",
+                "ARTIFICIAL INTELLIGENCE LAB": "P.SUJITHA / S.THIRUPATHI",
+                "DATA WAREHOUSING AND DATA MINING LAB": "S.THIRUPATHI / Y.RAJINI",
+                "PROFESSIONAL DEVELOPMENT LAB": "E.KAVYA"
+            },
+            "III_B": {
+                "DESIGN AND ANALYSIS OF ALGORITHMS": "Y.RAJINI",
+                "INTRODUCTION TO DATA SCIENCE": "T.RAVALI",
+                "DATA WAREHOUSING AND DATA MINING": "CH.SREE VIDYA",
+                "ARTIFICIAL INTELLIGENCE": "A.SUSHMITHA",
+                "ROBOTICS AND AUTOMATION": "D.KAVITHA",
+                "INTELLECTUAL PROPERTY RIGHTS": "K.LAVANYA",
+                "ARTIFICIAL INTELLIGENCE LAB": "A.SUSHMITHA / CH.SREE VIDYA",
+                "DATA WAREHOUSING AND DATA MINING LAB": "CH.SREE VIDYA / E.KAVYA",
+                "PROFESSIONAL DEVELOPMENT LAB": "E.KAVYA"
+            },
+            "III_C": {
+                "DESIGN AND ANALYSIS OF ALGORITHMS": "P. SUJITHA",
+                "INTRODUCTION TO DATA SCIENCE": "T. RAVALI",
+                "DATA WAREHOUSING AND DATA MINING": "S. THIRUPATHI",
+                "ARTIFICIAL INTELLIGENCE": "A. SUSHMITHA",
+                "ROBOTICS AND AUTOMATION": "K CHAITHANYA",
+                "INTELLECTUAL PROPERTY RIGHTS": "K.LAVANYA",
+                "ARTIFICIAL INTELLIGENCE LAB": "A. SUSHMITHA / T.RAVALI",
+                "DATA WAREHOUSING AND DATA MINING LAB": "S. THIRUPATHI / BALAJI",
+                "PROFESSIONAL DEVELOPMENT LAB": "U.KETHANA"
+            },
+            "III_D": {
+                "DESIGN AND ANALYSIS OF ALGORITHMS": "Y. RAJINI",
+                "INTRODUCTION TO DATA SCIENCE": "T. RAVALI",
+                "DATA WAREHOUSING AND DATA MINING": "CH. SREE VIDYA",
+                "ARTIFICIAL INTELLIGENCE": "P. SUJITHA",
+                "ROBOTICS AND AUTOMATION": "K CHAITHANYA",
+                "INTELLECTUAL PROPERTY RIGHTS": "K.LAVANYA",
+                "ARTIFICIAL INTELLIGENCE LAB": "P. SUJITHA / K.AJITH",
+                "DATA WAREHOUSING AND DATA MINING LAB": "CH. SREE VIDYA / K. AJITH",
+                "PROFESSIONAL DEVELOPMENT LAB": "U.KETHANA"
+            },
+            "IV_A": {
+                "CLOUD COMPUTING": "A. SUPRIYA",
+                "DEEP LEARNING": "D. SOWJANYA",
+                "BLOCKCHAIN TECHNOLOGY": "CH. SRIVALLI",
+                "DATABASE SECURITY": "B. SWAPNA LATHA",
+                "FULL STACK DEVELOPMENT": "A.R. LAVANYA",
+                "FULL STACK DEVELOPMENT LAB": "A.R. LAVANYA / BALAJI"
+            },
+            "IV_B": {
+                "CLOUD COMPUTING": "R GURUNADAM",
+                "DEEP LEARNING": "D SOWJANYA",
+                "BLOCKCHAIN TECHNOLOGY": "CH SRIVALLI",
+                "DATABASE SECURITY": "B SWAPNA LATHA",
+                "FULL STACK DEVELOPMENT": "A.R. LAVANYA",
+                "FULL STACK DEVELOPMENT LAB": "A.R. LAVANYA / BALAJI"
+            },
+            "IV_C": {
+                "CLOUD COMPUTING": "R GURUNADAM",
+                "DEEP LEARNING": "D SOWJANYA",
+                "BLOCKCHAIN TECHNOLOGY": "E SOWJANYA",
+                "DATABASE SECURITY": "B SWAPNA LATHA",
+                "FULL STACK DEVELOPMENT": "K MAHESH BABU",
+                "FULL STACK DEVELOPMENT LAB": "K MAHESH BABU / BALAJI"
+            },
+            "IV_D": {
+                "CLOUD COMPUTING": "A SUPRIYA",
+                "DEEP LEARNING": "T SIVA RATNA SAI",
+                "BLOCKCHAIN TECHNOLOGY": "CH SRIVALLI",
+                "DATABASE SECURITY": "K.BALAJI",
+                "FULL STACK DEVELOPMENT": "K MAHESH BABU",
+                "FULL STACK DEVELOPMENT LAB": "K MAHESH BABU / BALAJI"
+            }
+        };
+
+        if (DEFAULT_FACULTY[resolvedId] && DEFAULT_FACULTY[resolvedId][canonical]) {
+            return DEFAULT_FACULTY[resolvedId][canonical];
+        }
+
+        return "Department Faculty";
+    }
+
+    // Populate subjects based on selected class timetable and recorded history
+    async function populateSubjects() {
+        const classId = classSelect.value;
+        const previousSubject = subjectSelect.value;
+        subjectSelect.innerHTML = '';
+        if (!classId) {
+            subjectSelect.innerHTML = '<option value="">-- No Class Selected --</option>';
             return;
         }
 
-        // Put Lab first or sort cleanly
-        subjectNames.sort((a, b) => {
-            const aIsLab = a.toUpperCase().includes('LAB');
-            const bIsLab = b.toUpperCase().includes('LAB');
-            if (aIsLab && !bIsLab) return -1;
-            if (!aIsLab && bIsLab) return 1;
-            return a.localeCompare(b);
-        });
+        const resolvedId = resolveClassId(classId);
+        let schedule = {};
 
+        if (typeof db !== 'undefined') {
+            try {
+                let ttDoc = await db.collection('timetables').doc(classId).get();
+                if (!ttDoc.exists && resolvedId !== classId) {
+                    ttDoc = await db.collection('timetables').doc(resolvedId).get();
+                }
+                if (ttDoc.exists && ttDoc.data().schedule) {
+                    schedule = ttDoc.data().schedule;
+                }
+            } catch(e) {}
+        }
+        if (Object.keys(schedule).length === 0) {
+            try {
+                const customTt = JSON.parse(localStorage.getItem('custom_timetables') || '{}');
+                const target = customTt[classId] || customTt[resolvedId];
+                if (target && target.schedule) {
+                    schedule = target.schedule;
+                }
+            } catch(e) {}
+        }
+        if (Object.keys(schedule).length === 0 && window.OFFICIAL_TIMETABLES) {
+            const off = window.OFFICIAL_TIMETABLES[classId] || window.OFFICIAL_TIMETABLES[resolvedId];
+            if (off && off.schedule) {
+                schedule = off.schedule;
+            }
+        }
+
+        const subjectsMap = {};
+        const isIII = isThirdYearClass(classId) || isThirdYearClass(resolvedId);
+        const isIV = isFourthYearClass(classId) || isFourthYearClass(resolvedId);
+
+        let subjectNames = [];
+
+        if (isIII) {
+            // 1. For ALL Third Year sections (A, B, C, D), STRICTLY guarantee the EXACT SAME 9 curriculum subjects in identical order!
+            OFFICIAL_III_YEAR_SUBJECTS.forEach(sub => {
+                const faculty = getFacultyForSubject(classId, sub.name, schedule);
+                subjectsMap[sub.name] = {
+                    name: sub.name,
+                    code: sub.code,
+                    faculty: faculty,
+                    isLab: sub.isLab
+                };
+            });
+            subjectNames = OFFICIAL_III_YEAR_SUBJECTS.map(s => s.name);
+        } else if (isIV) {
+            // 2. For ALL Fourth Year sections (A, B, C, D), STRICTLY guarantee the EXACT SAME 6 curriculum subjects in identical order!
+            OFFICIAL_IV_YEAR_SUBJECTS.forEach(sub => {
+                const faculty = getFacultyForSubject(classId, sub.name, schedule);
+                subjectsMap[sub.name] = {
+                    name: sub.name,
+                    code: sub.code,
+                    faculty: faculty,
+                    isLab: sub.isLab
+                };
+            });
+            subjectNames = OFFICIAL_IV_YEAR_SUBJECTS.map(s => s.name);
+        } else {
+            // 3. Fallback for non-standard classes: scrape schedule and recorded history
+            for (const day in schedule) {
+                for (const p in schedule[day]) {
+                    const item = schedule[day][p];
+                    if (item && item.subjectName && !isIgnoredSubject(item.subjectName)) {
+                        const canonical = normalizeSubjectName(item.subjectName);
+                        if (!subjectsMap[canonical]) {
+                            subjectsMap[canonical] = {
+                                name: canonical,
+                                code: item.subjectCode || 'Core',
+                                faculty: item.faculty || 'Faculty',
+                                isLab: canonical.includes('LAB')
+                            };
+                        }
+                    }
+                }
+            }
+
+            try {
+                if (typeof db !== 'undefined') {
+                    let classDoc = await db.collection('classes').doc(classId).get();
+                    if (!classDoc.exists && resolvedId !== classId) {
+                        classDoc = await db.collection('classes').doc(resolvedId).get();
+                    }
+                    if (classDoc.exists) {
+                        const hist = classDoc.data().history || {};
+                        for (const k in hist) {
+                            const rec = hist[k];
+                            if (rec && rec.subjectName && !isIgnoredSubject(rec.subjectName)) {
+                                const canonical = normalizeSubjectName(rec.subjectName);
+                                if (!subjectsMap[canonical]) {
+                                    subjectsMap[canonical] = {
+                                        name: canonical,
+                                        code: rec.subjectCode || 'Core',
+                                        faculty: rec.faculty || 'Faculty',
+                                        isLab: canonical.includes('LAB')
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch(e) {}
+
+            subjectNames = Object.keys(subjectsMap);
+            subjectNames.sort((a, b) => {
+                const aIsLab = a.toUpperCase().includes('LAB');
+                const bIsLab = b.toUpperCase().includes('LAB');
+                if (aIsLab && !bIsLab) return 1;
+                if (!aIsLab && bIsLab) return -1;
+                return a.localeCompare(b);
+            });
+        }
+
+        if (subjectNames.length === 0) {
+            subjectSelect.innerHTML = '<option value="">No subjects found for this class</option>';
+            return;
+        }
+
+        let hasSelectedMatch = false;
         subjectNames.forEach((name, idx) => {
             const info = subjectsMap[name];
-            const isLab = name.toUpperCase().includes('LAB') || info.code.toUpperCase().includes('LAB') || info.code === 'R22A0589';
+            const isLab = info.isLab || name.toUpperCase().includes('LAB');
             const opt = document.createElement('option');
             opt.value = name;
             opt.textContent = `${name} (${info.code})${isLab ? ' [Lab - 3 Periods / Single Session]' : ''} - ${info.faculty}`;
-            if (idx === 0) opt.selected = true;
+            if (previousSubject && name === previousSubject) {
+                opt.selected = true;
+                hasSelectedMatch = true;
+            } else if (!previousSubject && idx === 0) {
+                opt.selected = true;
+            }
             subjectSelect.appendChild(opt);
         });
 
         const allOpt = document.createElement('option');
         allOpt.value = '';
         allOpt.textContent = '-- All Subjects (Consolidated) --';
+        if (previousSubject === '') {
+            allOpt.selected = true;
+            hasSelectedMatch = true;
+        }
         subjectSelect.appendChild(allOpt);
+
+        if (!hasSelectedMatch && subjectSelect.options.length > 0) {
+            subjectSelect.selectedIndex = 0;
+        }
     }
 
-    classSelect.addEventListener('change', () => {
-        populateSubjects();
+    classSelect.addEventListener('change', async () => {
+        const selectedId = classSelect.value;
+        if (selectedId) localStorage.setItem('current_class_id', selectedId);
+        await populateSubjects();
         generateReport();
     });
 
     subjectSelect.addEventListener('change', generateReport);
     generateBtn.addEventListener('click', generateReport);
 
-    // Fetch roster and history
+    // Fetch roster and history cleanly without IV-D fallback
     async function loadClassData(classId) {
         let roster = [];
         let history = {};
+        const resolvedId = resolveClassId(classId);
 
-        // Local storage first
-        try {
-            const localRoster = JSON.parse(localStorage.getItem('attendance_roster'));
-            const localHistory = JSON.parse(localStorage.getItem('attendance_history'));
-            if (localRoster && Array.isArray(localRoster) && localRoster.length > 0) {
-                roster = localRoster;
-            }
-            if (localHistory && typeof localHistory === 'object') {
-                history = localHistory;
-            }
-        } catch (e) {}
-
-        // Firestore sync
-        if (typeof db !== 'undefined') {
+        if (typeof db !== 'undefined' && classId) {
             try {
-                const doc = await db.collection('classes').doc(classId).get();
+                let doc = await db.collection('classes').doc(classId).get();
+                if (!doc.exists && resolvedId !== classId) {
+                    doc = await db.collection('classes').doc(resolvedId).get();
+                }
                 if (doc.exists) {
                     const d = doc.data();
-                    if (d.roster && d.roster.length > 0) roster = d.roster;
-                    if (d.history) history = { ...history, ...d.history };
+                    if (d.roster && Array.isArray(d.roster)) roster = d.roster;
+                    if (d.history && typeof d.history === 'object') history = d.history;
                 }
             } catch (err) {
                 console.warn("Firestore load error:", err);
             }
         }
 
-        // Fallback roster if empty
-        if (!roster || roster.length === 0) {
-            roster = [
-                { rollNo: "23N31A67K9", name: "SHAIK HASEENA" },
-                { rollNo: "23N31A67L0", name: "SHAIK NOORUDDIN" },
-                { rollNo: "23N31A67L1", name: "SHAIK SADIYA HUSSAIN" },
-                { rollNo: "23N31A67L2", name: "SHAIK SHAHID ANWAR" },
-                { rollNo: "23N31A67L3", name: "SHAMAGARI SUMEDH SOHAN" },
-                { rollNo: "23N31A67L4", name: "SHIVANATHRI PRASANNA" },
-                { rollNo: "23N31A67L5", name: "SHIVAYOGI AKSHAYA" },
-                { rollNo: "23N31A67L6", name: "SIRI SHERI" },
-                { rollNo: "23N31A67L7", name: "SHAIK SOHEL" },
-                { rollNo: "23N31A67L8", name: "SONAL KUMAR" },
-                { rollNo: "23N31A67L9", name: "SONTENA DINESH" },
-                { rollNo: "23N31A67M0", name: "SOUDANI VINAY KUMAR" },
-                { rollNo: "23N31A67M1", name: "SUDULA MOHAN SAI TEJ" },
-                { rollNo: "23N31A67M2", name: "SURA ARUNKUMAR" },
-                { rollNo: "23N31A67M3", name: "SYED SHA SHARAAZ HUSSAINI" },
-                { rollNo: "23N31A67M4", name: "TADAVARTHI B N V H SANKARA RAO" },
-                { rollNo: "23N31A67M5", name: "TALARI AKSHAYALATHA" },
-                { rollNo: "23N31A67M6", name: "TANNIRU SANNITHA" },
-                { rollNo: "23N31A67M7", name: "TENTU ROHIT SAI VENKAT" },
-                { rollNo: "23N31A67M8", name: "THATI ROHITH" },
-                { rollNo: "23N31A67M9", name: "THODE KOUSHIK" },
-                { rollNo: "23N31A67N0", name: "THOKALA GOPI" },
-                { rollNo: "23N31A67N1", name: "THOTA LIKITHA" },
-                { rollNo: "23N31A67N2", name: "THOTA PAVAN KALYAN" },
-                { rollNo: "23N31A67N3", name: "THOTA SAI PRAKASH" },
-                { rollNo: "23N31A67N4", name: "TALLARI PRANAVI" },
-                { rollNo: "23N31A67N5", name: "NANAVATH NITHIN" },
-                { rollNo: "23N31A67N6", name: "TULIMILLI AKHIL RAMESH" },
-                { rollNo: "23N31A67N7", name: "V VINAY KUMAR" },
-                { rollNo: "23N31A67N8", name: "VADLAKONDA NITHISH KUMAR" },
-                { rollNo: "23N31A67N9", name: "VAKADANI ANIL" },
-                { rollNo: "23N31A67P0", name: "VALLALA DIKSHITHA" },
-                { rollNo: "23N31A67P1", name: "V.SAI SREEVALLI" },
-                { rollNo: "23N31A67P2", name: "VANGALA MANASWINI" },
-                { rollNo: "23N31A67P3", name: "SHAIK MOHD ROSHAN" },
-                { rollNo: "23N31A67P4", name: "VARAGALA MANIDEEP" },
-                { rollNo: "23N31A67P5", name: "VEMIREDDY ASHOK REDDY" },
-                { rollNo: "23N31A67P6", name: "SHAIK SHAREEF" },
-                { rollNo: "23N31A67P7", name: "VEMULA RAHUL" },
-                { rollNo: "23N31A67P8", name: "VEMUNDLA VARSHITHA" },
-                { rollNo: "23N31A67P9", name: "ELASARAPU NAGA SRIRAM" },
-                { rollNo: "23N31A67Q0", name: "YADAMAKANTI KRISHNA KOUSHIK" },
-                { rollNo: "23N31A67Q1", name: "YADAPALLY NAGESWARI" },
-                { rollNo: "23N31A67Q2", name: "YARAM VENKATESWARA REDDY" },
-                { rollNo: "23N31A67Q3", name: "CHOTAKURI SANJANA" },
-                { rollNo: "23N31A67Q4", name: "T RAVI CHARAN REDDY" },
-                { rollNo: "23N31A67Q5", name: "GUNTRU GOPALA KRISHNA" }
-            ];
+        if ((!roster || roster.length === 0) && classId) {
+            try {
+                let localRoster = JSON.parse(localStorage.getItem('attendance_roster_' + classId) || 'null');
+                if (!localRoster && resolvedId !== classId) {
+                    localRoster = JSON.parse(localStorage.getItem('attendance_roster_' + resolvedId) || 'null');
+                }
+                if (localRoster && Array.isArray(localRoster)) roster = localRoster;
+
+                let localHistory = JSON.parse(localStorage.getItem('attendance_history_' + classId) || 'null');
+                if (!localHistory && resolvedId !== classId) {
+                    localHistory = JSON.parse(localStorage.getItem('attendance_history_' + resolvedId) || 'null');
+                }
+                if (localHistory && typeof localHistory === 'object') history = localHistory;
+            } catch (e) {}
         }
 
-        return { roster, history };
+        return { roster: roster || [], history: history || {} };
     }
 
     // Main Report Generation - True Date-wise Monthly Format across picked range
@@ -241,21 +623,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const { roster, history } = await loadClassData(classId);
+
+            if (!roster || roster.length === 0) {
+                reportsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 3rem; background: white; border-radius: 8px; border: 1px solid #ccc;">
+                        <i class="fas fa-users-slash fa-3x" style="color: #94a3b8; margin-bottom: 1rem;"></i>
+                        <h3 style="color: #334155;">No students in roster for this class</h3>
+                        <p style="color: #64748b;">Please select another class or add students in the admin panel.</p>
+                    </div>
+                `;
+                loading.style.display = 'none';
+                return;
+            }
+
+            const resolvedId = resolveClassId(classId);
             let schedule = {};
             let classInfo = {};
             try {
                 const customTt = JSON.parse(localStorage.getItem('custom_timetables') || '{}');
-                if (customTt[classId]) {
-                    classInfo = customTt[classId];
-                    if (customTt[classId].schedule) schedule = customTt[classId].schedule;
+                const target = customTt[classId] || customTt[resolvedId];
+                if (target) {
+                    classInfo = target;
+                    if (target.schedule) schedule = target.schedule;
                 }
             } catch (e) {}
-            if (Object.keys(schedule).length === 0 && window.OFFICIAL_TIMETABLES && window.OFFICIAL_TIMETABLES[classId]) {
-                classInfo = window.OFFICIAL_TIMETABLES[classId] || {};
+            if (Object.keys(schedule).length === 0 && window.OFFICIAL_TIMETABLES) {
+                classInfo = window.OFFICIAL_TIMETABLES[classId] || window.OFFICIAL_TIMETABLES[resolvedId] || {};
                 schedule = classInfo.schedule || {};
             }
 
-            const isLabSubject = selectedSubject ? selectedSubject.toUpperCase().includes('LAB') : false;
+            const targetCanonical = normalizeSubjectName(selectedSubject);
+            const isLabSubject = selectedSubject ? (selectedSubject.toUpperCase().includes('LAB') || targetCanonical.includes('LAB')) : false;
 
             // Find subject metadata
             let subjectCode = '';
@@ -263,13 +661,22 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const d in schedule) {
                 for (const p in schedule[d]) {
                     const itm = schedule[d][p];
-                    if (itm && itm.subjectName === selectedSubject) {
+                    if (itm && itm.subjectName && normalizeSubjectName(itm.subjectName) === targetCanonical) {
                         subjectCode = itm.subjectCode || '';
                         facultyName = itm.faculty || '';
                         break;
                     }
                 }
                 if (subjectCode) break;
+            }
+
+            // Fallback code and faculty
+            if (!facultyName) {
+                facultyName = getFacultyForSubject(classId, targetCanonical, schedule);
+            }
+            if (!subjectCode) {
+                const foundMaster = [...OFFICIAL_III_YEAR_SUBJECTS, ...OFFICIAL_IV_YEAR_SUBJECTS].find(s => s.name === targetCanonical);
+                if (foundMaster) subjectCode = foundMaster.code;
             }
 
             const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -281,10 +688,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     for (const p in schedule[dayName]) {
                         const itm = schedule[dayName][p];
                         if (itm && itm.subjectName) {
-                            const itmSub = itm.subjectName.trim().toUpperCase();
-                            const targetSub = selectedSubject.trim().toUpperCase();
-                            const isLab = isLabSubject && itmSub.includes('LAB');
-                            if (itmSub === targetSub || isLab) {
+                            const itmCanonical = normalizeSubjectName(itm.subjectName);
+                            // Match canonical subject name
+                            if (itmCanonical === targetCanonical) {
                                 scheduledDaysSet.add(dayName);
                             }
                         }
@@ -313,10 +719,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (let p = 1; p <= 7; p++) {
                     const pKey1 = `${classId}_${key}_P${p}`;
                     const pKey2 = `${key}_P${p}`;
-                    const rec = history[pKey1] || history[pKey2];
+                    const pKey3 = `${resolvedId}_${key}_P${p}`;
+                    const rec = history[pKey1] || history[pKey2] || history[pKey3];
                     if (rec && rec.attendance && Object.keys(rec.attendance).length > 0) {
-                        const subName = (rec.subjectName || '').trim().toUpperCase();
-                        if (!selectedSubject || subName === selectedSubject.trim().toUpperCase() || (isLabSubject && subName.includes('LAB'))) {
+                        const subName = normalizeSubjectName(rec.subjectName || '');
+                        // Match canonical subject name
+                        if (!selectedSubject || subName === targetCanonical) {
                             hasRecordedAttendance = true;
                             break;
                         }
@@ -324,16 +732,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Check if this date is Sunday or Holiday
-                const record = history[key];
+                const record = history[key] || history[`${classId}_${key}`] || history[`${resolvedId}_${key}`];
                 const globalHol = globalHolidays.find(h => (typeof h === 'string' ? h === key : h.date === key));
                 const isHoliday = (record && record.isHoliday) || globalHol;
 
-                // Remove Sundays and Holidays completely from subject-wise report
-                if (isSunday && !hasRecordedAttendance) {
-                    curr.setDate(curr.getDate() + 1);
-                    continue;
-                }
-                if (isHoliday && !hasRecordedAttendance) {
+                // Every Sunday and declared holiday is excluded from subject-wise report
+                if (isSunday || isHoliday) {
                     curr.setDate(curr.getDate() + 1);
                     continue;
                 }
@@ -396,12 +800,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     for (let p = 1; p <= 7; p++) {
                         const pKey1 = `${classId}_${colKey}_P${p}`;
                         const pKey2 = `${colKey}_P${p}`;
-                        const rec = history[pKey1] || history[pKey2];
+                        const pKey3 = `${resolvedId}_${colKey}_P${p}`;
+                        const rec = history[pKey1] || history[pKey2] || history[pKey3];
                         if (rec && rec.attendance) {
-                            const subName = (rec.subjectName || '').toUpperCase();
-                            if (subName.includes('LAB') || !rec.subjectName) {
+                            const subName = normalizeSubjectName(rec.subjectName || '');
+                            // Only match this specific lab — not all labs
+                            if (subName === targetCanonical) {
                                 hasLabRecord = true;
-                                if (rec.attendance[studentRoll] === 'absent') {
+                                const val = String(rec.attendance[studentRoll] || '').trim().toLowerCase();
+                                if (val === 'absent' || val === 'ab' || val === 'a') {
                                     isAbsentInLab = true;
                                 }
                             }
@@ -417,20 +824,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     for (let p = 1; p <= 7; p++) {
                         const pKey1 = `${classId}_${colKey}_P${p}`;
                         const pKey2 = `${colKey}_P${p}`;
-                        const rec = history[pKey1] || history[pKey2];
+                        const pKey3 = `${resolvedId}_${colKey}_P${p}`;
+                        const rec = history[pKey1] || history[pKey2] || history[pKey3];
                         if (rec && rec.attendance) {
-                            const subName = (rec.subjectName || '').trim().toUpperCase();
-                            if (subName === selectedSubject.toUpperCase()) {
-                                return rec.attendance[studentRoll] || 'present';
+                            const subName = normalizeSubjectName(rec.subjectName || '');
+                            if (subName === targetCanonical) {
+                                const val = String(rec.attendance[studentRoll] || '').trim().toLowerCase();
+                                return (val === 'absent' || val === 'ab' || val === 'a') ? 'absent' : 'present';
                             }
                         }
                     }
                 }
 
-                // 3. Fallback to direct date record history[colKey]
-                const dateRec = history[colKey];
+                // 3. Fallback to direct date record
+                const dateRec = history[colKey] || history[`${classId}_${colKey}`] || history[`${resolvedId}_${colKey}`];
                 if (dateRec && dateRec.attendance && dateRec.attendance[studentRoll]) {
-                    return dateRec.attendance[studentRoll];
+                    const val = String(dateRec.attendance[studentRoll] || '').trim().toLowerCase();
+                    return (val === 'absent' || val === 'ab' || val === 'a') ? 'absent' : 'present';
                 }
 
                 // 4. Default to present

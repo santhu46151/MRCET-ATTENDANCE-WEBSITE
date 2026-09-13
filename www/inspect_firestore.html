@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inspect Firestore</title>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="firebase-init.js"></script>
+</head>
+<body style="font-family: monospace; padding: 20px; background: #1e1e1e; color: #fff;">
+    <h2>Firestore Inspection Results</h2>
+    <div id="status">Loading...</div>
+    <pre id="output" style="white-space: pre-wrap; word-break: break-all; background: #111; padding: 15px; border-radius: 6px;"></pre>
+
+    <script>
+        async function runInspection() {
+            const out = document.getElementById('output');
+            const status = document.getElementById('status');
+            const log = (msg) => {
+                out.textContent += msg + "\n";
+            };
+
+            auth.onAuthStateChanged(async (user) => {
+                status.textContent = "Auth User: " + (user ? user.email : "Not Logged In");
+                log("Current Auth: " + (user ? `${user.email} (${user.uid})` : "None"));
+
+                try {
+                    // Detail IV_D
+                    const ivDoc = await db.collection('classes').doc('IV_D').get();
+                    if (ivDoc.exists) {
+                        const d = ivDoc.data();
+                        log("\n================ FULL IV_D DATA ================");
+                        const hist = d.history || {};
+                        const allKeys = Object.keys(hist);
+                        log("Total history keys in IV_D: " + allKeys.length);
+
+                        const statusValues = new Set();
+                        const keyPatterns = new Set();
+                        const dateKeysMap = {};
+
+                        allKeys.forEach(k => {
+                            const rec = hist[k] || {};
+                            // Identify key pattern
+                            if (k.match(/^[A-Z0-9]+_[A-Z0-9]+_\d{4}-\d{2}-\d{2}_P\d+$/i)) keyPatterns.add("CLASS_DATE_P");
+                            else if (k.match(/^[A-Z0-9]+_[A-Z0-9]+_\d{4}-\d{2}-\d{2}$/i)) keyPatterns.add("CLASS_DATE");
+                            else if (k.match(/^\d{4}-\d{2}-\d{2}_P\d+$/)) keyPatterns.add("DATE_P");
+                            else if (k.match(/^\d{4}-\d{2}-\d{2}$/)) keyPatterns.add("DATE_ONLY");
+                            else keyPatterns.add("OTHER: " + k);
+
+                            // Extract date
+                            const dateMatch = k.match(/(\d{4}-\d{2}-\d{2})/);
+                            const theDate = (rec.date && rec.date.match(/^\d{4}-\d{2}-\d{2}$/)) ? rec.date : (dateMatch ? dateMatch[1] : null);
+                            if (theDate) {
+                                if (!dateKeysMap[theDate]) dateKeysMap[theDate] = [];
+                                dateKeysMap[theDate].push(k);
+                            }
+
+                            if (rec.attendance && typeof rec.attendance === 'object') {
+                                Object.values(rec.attendance).forEach(val => statusValues.add(val));
+                            }
+                        });
+
+                        log("Key patterns detected: " + JSON.stringify(Array.from(keyPatterns)));
+                        log("Status values in attendance: " + JSON.stringify(Array.from(statusValues)));
+                        log("Distinct dates with attendance in IV_D: " + Object.keys(dateKeysMap).length);
+                        log("Dates list: " + JSON.stringify(Object.keys(dateKeysMap).sort()));
+
+                        // Also check doc in 'attendance' collection
+                        const attDoc = await db.collection('attendance').doc('QwF8L89bXPYSmRRb894kgqC93Go1').get();
+                        if (attDoc.exists) {
+                            const ad = attDoc.data();
+                            log("\n=== ATTENDANCE COLLECTION DOC QwF8L89bXPYSmRRb894kgqC93Go1 ===");
+                            const aHist = ad.history || {};
+                            log("History keys count in attDoc: " + Object.keys(aHist).length);
+                            log("Sample history keys in attDoc: " + JSON.stringify(Object.keys(aHist)));
+                            
+                            // Check who QwF8L89bXPYSmRRb894kgqC93Go1 is in users
+                            const userDoc = await db.collection('users').doc('QwF8L89bXPYSmRRb894kgqC93Go1').get();
+                            if (userDoc.exists) {
+                                log("User info for QwF8L89bXPYSmRRb894kgqC93Go1: " + JSON.stringify(userDoc.data()));
+                            }
+                        }
+
+                    }
+
+
+
+                    // 2. Check if there is an 'attendance' collection
+                    log("\n=== COLLECTION: attendance ===");
+                    try {
+                        const attSnap = await db.collection('attendance').get();
+                        log("Total attendance docs found: " + attSnap.size);
+                        attSnap.forEach(d => {
+                            log(`  Doc: ${d.id} -> ${JSON.stringify(d.data())}`);
+                        });
+                    } catch (e) {
+                        log("attendance collection error: " + e.message);
+                    }
+
+                    // 3. Check 'holidays' collection
+                    log("\n=== COLLECTION: holidays ===");
+                    try {
+                        const holSnap = await db.collection('holidays').get();
+                        log("Total holidays: " + holSnap.size);
+                        holSnap.forEach(d => log(`  ${d.id}: ${JSON.stringify(d.data())}`));
+                    } catch (e) {
+                        log("holidays error: " + e.message);
+                    }
+
+                    // 4. Check 'timetables' collection
+                    log("\n=== COLLECTION: timetables ===");
+                    try {
+                        const ttSnap = await db.collection('timetables').get();
+                        log("Total timetables: " + ttSnap.size);
+                        ttSnap.forEach(d => {
+                            log(`  Timetable ${d.id}: schedule days = ${Object.keys(d.data().schedule || {})}`);
+                        });
+                    } catch (e) {
+                        log("timetables error: " + e.message);
+                    }
+
+                    // 5. Check 'settings' collection
+                    log("\n=== COLLECTION: settings ===");
+                    try {
+                        const setSnap = await db.collection('settings').get();
+                        log("Total settings docs: " + setSnap.size);
+                        setSnap.forEach(d => log(`  ${d.id}: ${JSON.stringify(d.data())}`));
+                    } catch (e) {
+                        log("settings error: " + e.message);
+                    }
+
+                    status.textContent += " | Inspection Complete!";
+                } catch (err) {
+                    log("\nFATAL ERROR during inspection: " + err.message + "\n" + err.stack);
+                    status.textContent += " | Error: " + err.message;
+                }
+            });
+        }
+        window.addEventListener('DOMContentLoaded', runInspection);
+    </script>
+</body>
+</html>

@@ -38,30 +38,7 @@
                         <div style="display: flex; align-items: center; gap: 0.4rem;">
                             <i class="fas fa-graduation-cap" style="color: var(--primary);"></i>
                             <select id="class-dropdown" style="border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.9rem; font-weight: 700; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); outline: none; cursor: pointer; transition: var(--transition);">
-                                <optgroup label="IV Year (CSE-DS)">
-                                    <option value="IV_A">IV Year / Section A (CSE-DS)</option>
-                                    <option value="IV_B">IV Year / Section B (CSE-DS)</option>
-                                    <option value="IV_C">IV Year / Section C (CSE-DS)</option>
-                                    <option value="IV_D">IV Year / Section D (CSE-DS)</option>
-                                </optgroup>
-                                <optgroup label="III Year (CSE-DS)">
-                                    <option value="III_A">III Year / Section A (CSE-DS)</option>
-                                    <option value="III_B">III Year / Section B (CSE-DS)</option>
-                                    <option value="III_C">III Year / Section C (CSE-DS)</option>
-                                    <option value="III_D">III Year / Section D (CSE-DS)</option>
-                                </optgroup>
-                                <optgroup label="II Year (CSE-DS)">
-                                    <option value="II_A">II Year / Section A (CSE-DS)</option>
-                                    <option value="II_B">II Year / Section B (CSE-DS)</option>
-                                    <option value="II_C">II Year / Section C (CSE-DS)</option>
-                                    <option value="II_D">II Year / Section D (CSE-DS)</option>
-                                </optgroup>
-                                <optgroup label="I Year (CSE-DS)">
-                                    <option value="I_A">I Year / Section A (CSE-DS)</option>
-                                    <option value="I_B">I Year / Section B (CSE-DS)</option>
-                                    <option value="I_C">I Year / Section C (CSE-DS)</option>
-                                    <option value="I_D">I Year / Section D (CSE-DS)</option>
-                                </optgroup>
+                                <option value="" disabled selected>Loading classes...</option>
                             </select>
                         </div>
                     </div>
@@ -101,6 +78,9 @@
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <button class="btn btn-outline" id="btn-dashboard-view-timetable" title="View Full Class Timetable" style="font-size: 0.82rem; padding: 0.4rem 0.85rem; color: var(--primary); border-color: rgba(99, 102, 241, 0.4); display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600;">
+                        <i class="fas fa-calendar-alt"></i> View Timetable
+                    </button>
                     <button class="btn btn-outline" id="export-btn" title="Export Attendance Report" style="font-size: 0.82rem; padding: 0.4rem 0.75rem;">
                         <i class="fas fa-file-export"></i> Export CSV
                     </button>
@@ -113,7 +93,12 @@
                     <span id="daily-schedule-title" style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
                         <i class="fas fa-clock" style="color: var(--primary); margin-right: 0.35rem;"></i>Today's Class Schedule:
                     </span>
-                    <span id="daily-schedule-count" style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);"></span>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <span id="daily-schedule-count" style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);"></span>
+                        <button class="btn btn-outline btn-sm" id="btn-inline-view-tt" style="font-size: 0.74rem; padding: 0.2rem 0.6rem; color: var(--primary); border-color: rgba(99, 102, 241, 0.4); display: inline-flex; align-items: center; gap: 0.35rem;">
+                            <i class="fas fa-table"></i> Weekly Timetable
+                        </button>
+                    </div>
                 </div>
                 <div id="copy-notification-banner" style="display: none; padding: 0.6rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; animation: fadeIn 0.2s ease;"></div>
                 <div id="daily-schedule-container">
@@ -179,16 +164,18 @@
         <main class="dashboard-content">
             <!-- Left Side: Directory and Roster Grid -->
             <section class="directory-panel glass-panel" aria-label="Student Directory">
-                <div class="panel-header">
-                    <h2>Student Roster</h2>
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <h2 style="margin: 0;">Student Roster</h2>
+                        <span id="auto-save-status" style="font-size: 0.75rem; font-weight: 700; color: var(--success); background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.25); padding: 0.2rem 0.6rem; border-radius: 999px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                            <i class="fas fa-check-circle"></i> Auto-Saved
+                        </span>
+                    </div>
                     <div class="header-actions">
-                        <button class="btn btn-outline" id="copy-prev-attendance" title="Copy attendance from the previous period today" style="color: var(--info); border-color: var(--info); font-size: 0.85rem; display: none;">
-                            <i class="fas fa-copy"></i> Copy Prev Period
-                        </button>
                         <button class="btn btn-outline" id="mark-all-present" title="Mark all students present">Mark All Present</button>
                         <button class="btn btn-outline" id="mark-all-absent" title="Mark all students absent">Mark All Absent</button>
-                        <button class="btn btn-primary" id="btn-next-period" title="Save and go to next subject in timetable" style="font-size: 0.85rem; display: none; background: linear-gradient(135deg, var(--primary), #818cf8); border: none;">
-                            <i class="fas fa-forward"></i> Next Subject
+                        <button class="btn btn-primary" id="give-all-subjects-btn" title="Give this attendance to all scheduled subjects today" style="font-size: 0.85rem; background: linear-gradient(135deg, var(--primary), #818cf8); border: none;">
+                            <i class="fas fa-layer-group"></i> Give to All Subjects
                         </button>
                     </div>
                 </div>
@@ -409,5 +396,46 @@
             }
         });
     </script>
+    <!-- Dashboard Interactive Timetable Modal Dialog -->
+    <div id="dashboard-timetable-modal-overlay" class="dashboard-modal-overlay">
+        <div class="dashboard-modal-dialog glass-panel">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; border-bottom: 1px solid var(--card-border); padding-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h2 id="dashboard-modal-tt-title" style="margin: 0; font-size: 1.45rem; display: flex; align-items: center; gap: 0.65rem; color: var(--text-primary);">
+                        <i class="fas fa-calendar-alt" style="color: var(--primary);"></i>
+                        <span id="dashboard-modal-tt-class-name">Class Timetable</span>
+                    </h2>
+                    <p id="dashboard-modal-tt-subtitle" style="margin: 0.35rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                        Weekly Schedule (Monday to Saturday, Periods 1 to 6)
+                    </p>
+                </div>
+                <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <label for="dashboard-modal-tt-day-filter" style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);">Day:</label>
+                        <select id="dashboard-modal-tt-day-filter" style="padding: 0.35rem 0.6rem; font-size: 0.82rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary);">
+                            <option value="ALL">Full Week</option>
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                        </select>
+                    </div>
+                    <button id="dashboard-modal-btn-print" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem;">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <button id="dashboard-modal-btn-close" class="btn btn-outline btn-sm" style="padding: 0.35rem 0.65rem;" title="Close Modal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Content Grid -->
+            <div id="dashboard-modal-tt-grid" class="weekly-grid-container" style="min-height: 360px;">
+                <!-- Dynamically populated with columns -->
+            </div>
+        </div>
+    </div>
 </body>
 </html>

@@ -43,6 +43,7 @@
     "express-rate-limit": "^8.6.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.1",
+    "pdfjs-dist": "^3.11.174",
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {

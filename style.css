@@ -531,6 +531,20 @@ header {
     color: var(--danger);
 }
 
+/* Student Unmarked / Pending State */
+.student-card.unmarked {
+    border-color: var(--card-border);
+    background: var(--card-bg);
+    opacity: 0.92;
+}
+.student-card.unmarked .student-avatar {
+    background: #94a3b8;
+    color: white;
+}
+.student-card.unmarked .student-roll {
+    color: var(--text-secondary);
+}
+
 @keyframes pulse-red {
     0% { transform: scale(1); }
     50% { transform: scale(0.95); }
@@ -798,5 +812,125 @@ footer a {
 #copy-notification-banner {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     backdrop-filter: blur(8px);
+}
+
+/* Weekly Timetable Matrix Grid (Dashboard & Modal) */
+.weekly-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1.15rem;
+    margin-top: 1rem;
+}
+
+.day-column {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    backdrop-filter: blur(8px);
+    transition: all 0.25s ease;
+}
+
+.day-column:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.day-column.today {
+    border: 2px solid var(--primary);
+    background: rgba(99, 102, 241, 0.06);
+}
+
+.day-header {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--card-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.day-periods-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.period-card-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.75rem;
+    transition: all 0.2s;
+    border-left: 3px solid var(--primary);
+}
+
+.period-card-item:hover {
+    transform: translateX(3px);
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.period-card-item.lab {
+    border-left-color: #a855f7;
+    background: rgba(168, 85, 247, 0.08);
+}
+
+.period-card-item.tech {
+    border-left-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.period-card-item.security {
+    border-left-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.period-card-item.tutorial {
+    border-left-color: #06b6d4;
+    background: rgba(6, 182, 212, 0.08);
+}
+
+.period-card-item.free {
+    opacity: 0.55;
+    border-left-color: var(--card-border);
+    background: transparent;
+    border-style: dashed;
+}
+
+/* Timetable Modal Overlay */
+.dashboard-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    padding: 1.5rem;
+}
+
+.dashboard-modal-dialog {
+    background: var(--bg-primary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-xl);
+    width: 100%;
+    max-width: 1250px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: 2rem;
+}
+
+@keyframes modalPop {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
 }
 
