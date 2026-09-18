@@ -4,11 +4,13 @@
   "description": "",
   "main": "main.js",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "cap:sync": "vite build && npx cap sync",
     "start": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "build:web": "npx copyfiles -f \"*.html\" \"*.css\" \"*.js\" \"logo.png\" www",
-    "cap:sync": "npm run build:web && npx cap sync"
+    "dist": "electron-builder"
   },
   "build": {
     "appId": "com.mrcet.attendance",
@@ -41,16 +43,24 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.1",
+    "firebase": "^12.19.0",
     "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^1.47.0",
     "mongoose": "^9.9.1",
     "pdfjs-dist": "^3.11.174",
-    "sqlite3": "^6.0.1"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4",
+    "sqlite3": "^6.0.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.0",
+    "@vitejs/plugin-react": "^6.1.1",
     "copyfiles": "^2.4.1",
     "electron": "^43.4.0",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "vite": "^8.3.0"
   }
 }
