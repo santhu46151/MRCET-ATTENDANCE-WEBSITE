@@ -55,7 +55,6 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.0",
     "@vitejs/plugin-react": "^6.1.1",
     "copyfiles": "^2.4.1",
