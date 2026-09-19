@@ -25,7 +25,13 @@ import {
   CalendarDays, 
   FileSpreadsheet, 
   Download, 
-  Clock 
+  Clock,
+  Check,
+  X,
+  Layers,
+  Save,
+  Copy,
+  Users
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -36,13 +42,16 @@ const Dashboard = () => {
     toggleStudentStatus,
     saveAttendance,
     giveAllPeriodsAttendance,
+    markAllStatus,
     searchQuery,
     setSearchQuery,
     selectedPeriod,
     selectedDate,
     currentClassId,
     previousPeriod,
-    copyFromPreviousPeriod
+    copyFromPreviousPeriod,
+    copyFromPeriod,
+    syncStatus
   } = useAttendance();
 
   // Modal states
@@ -97,6 +106,15 @@ const Dashboard = () => {
     }
   };
 
+  const handleCopyFromP1 = () => {
+    const ok = copyFromPeriod(1);
+    if (ok) {
+      triggerToast(`Copied Period 1 attendance into Period ${selectedPeriod}!`);
+    } else {
+      triggerToast(`No recorded attendance found in Period 1 for ${selectedDate}.`);
+    }
+  };
+
   const handleExportCSV = () => {
     try {
       const rows = roster.map((s, idx) => ({
@@ -143,7 +161,7 @@ const Dashboard = () => {
 
       {/* Reports Toolbar matching legacy header toolbar */}
       <div 
-        className="glass-panel" 
+        className="glass-panel reports-toolbar" 
         style={{ 
           padding: '0.75rem 1.25rem', 
           marginBottom: '1.25rem', 
@@ -154,7 +172,7 @@ const Dashboard = () => {
           gap: '0.75rem' 
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+        <div className="reports-toolbar-buttons" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
           <span 
             style={{ 
               fontSize: '0.8rem', 
@@ -256,48 +274,132 @@ const Dashboard = () => {
       {/* Period Selection (1 to 6) */}
       <PeriodSelector />
 
-      {/* Stats Counter & Save / Mark Actions */}
-      <StatsRing
-        onSave={handleSave}
-        onOpenGiveAll={() => setShowGiveAllModal(true)}
-        onCopyPrev={handleCopyPrev}
-        isSaving={isSaving}
-      />
+      {/* Stats Counter */}
+      <StatsRing />
 
       {/* Main Content Layout: Student Grid (Left) + Absentees Sidebar (Right) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: '1.25rem', alignItems: 'start' }}>
+      <div className="dashboard-content">
         
-        {/* Left: Search Bar & Students Grid */}
-        <div>
-          <div className="glass-panel" style={{ padding: '0.65rem 1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <Search size={18} color="var(--text-muted)" />
-            <input
-              type="text"
-              placeholder="Search by Roll Number or Student Name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                background: 'transparent',
-                border: 'none',
-                padding: '0.2rem',
-                fontSize: '0.9rem',
-                boxShadow: 'none'
-              }}
-            />
-            {searchQuery && (
+        {/* Left: Dedicated Attendance / Student Roster Box */}
+        <section className="directory-panel glass-panel" aria-label="Student Attendance Roster">
+          {/* Box Header with Title, Period info and Quick Action Buttons */}
+          <div className="panel-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--text-primary)' }}>
+                <span>Student Roster</span>
+              </h2>
+              <span className="badge badge-primary" style={{ fontSize: '0.72rem' }}>
+                Period {selectedPeriod}
+              </span>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                ({filteredRoster.length} students)
+              </span>
+            </div>
+
+            {/* Attendance Action Controls (visible to all users on desktop & mobile) */}
+            <div className="header-actions roster-action-buttons">
               <button
-                className="btn btn-outline btn-sm"
-                onClick={() => setSearchQuery('')}
-                style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                type="button"
+                className="btn btn-outline btn-sm action-btn-present"
+                onClick={() => markAllStatus('present')}
+                title="Mark all students present in active period"
               >
-                Clear
+                <Check size={15} color="var(--success)" />
+                <span>All Present</span>
               </button>
-            )}
+
+              <button
+                type="button"
+                className="btn btn-outline btn-sm action-btn-absent"
+                onClick={() => markAllStatus('absent')}
+                title="Mark all students absent in active period"
+              >
+                <X size={15} color="var(--danger)" />
+                <span>All Absent</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-primary btn-sm action-btn-give-all"
+                onClick={() => setShowGiveAllModal(true)}
+                title="Apply active attendance to all scheduled periods today"
+              >
+                <Layers size={15} />
+                <span>Give to All Subjects</span>
+              </button>
+
+              {selectedPeriod !== '1' ? (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm action-btn-copy"
+                  onClick={handleCopyFromP1}
+                  title={`Copy Period 1 attendance into Period ${selectedPeriod}`}
+                >
+                  <Copy size={14} color="#38bdf8" />
+                  <span>Copy from P1</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm action-btn-copy"
+                  disabled
+                  title="Switch to Period 2 to 6 to copy attendance from Period 1"
+                  style={{ opacity: 0.6, cursor: 'not-allowed' }}
+                >
+                  <Copy size={14} color="#38bdf8" />
+                  <span>Copy from P1</span>
+                </button>
+              )}
+            </div>
           </div>
 
+          {/* Search Bar inside Roster Box */}
+          <div className="search-filter-row">
+            <div 
+              style={{ 
+                width: '100%', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.65rem',
+                background: 'rgba(255, 255, 255, 0.03)',
+                padding: '0.55rem 0.85rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--card-border)'
+              }}
+            >
+              <Search size={18} color="var(--text-muted)" />
+              <input
+                type="text"
+                placeholder="Search by Roll Number or Student Name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '0.1rem',
+                  fontSize: '0.88rem',
+                  boxShadow: 'none',
+                  color: 'var(--text-primary)',
+                  outline: 'none'
+                }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setSearchQuery('')}
+                  style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem' }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Students Grid inside Roster Box */}
           {filteredRoster.length === 0 ? (
-            <div className="glass-panel" style={{ padding: '3rem 1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <div style={{ padding: '3rem 1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
               <AlertCircle size={36} style={{ margin: '0 auto 0.75rem auto', opacity: 0.4 }} />
               <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 No Students Found
@@ -323,7 +425,7 @@ const Dashboard = () => {
               })}
             </div>
           )}
-        </div>
+        </section>
 
         {/* Right: Absentees Summary & Quick WhatsApp Export */}
         <AbsenteesSidebar />

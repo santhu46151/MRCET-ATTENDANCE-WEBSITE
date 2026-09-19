@@ -81,6 +81,12 @@ export const AttendanceProvider = ({ children }) => {
   const [inchargeRequests, setInchargeRequests] = useState([]);
 
   const lastLocalUploadTimeRef = useRef(0);
+  const isLocalEditRef = useRef(false);
+  const cloudAutoSaveTimerRef = useRef(null);
+  const latestHistoryRef = useRef(history);
+  latestHistoryRef.current = history;
+  const currentClassIdRef = useRef(currentClassId);
+  currentClassIdRef.current = currentClassId;
 
   // Period key: e.g. IV_D_2026-09-18_P1
   const activePeriodKey = `${currentClassId}_${selectedDate}_P${selectedPeriod}`;
@@ -118,6 +124,56 @@ export const AttendanceProvider = ({ children }) => {
       if (historySaveTimerRef.current) clearTimeout(historySaveTimerRef.current);
     };
   }, [history, currentClassId]);
+
+  // AUTOMATIC CLOUD SAVE: Debounced 800ms auto-save to Firestore whenever history is modified locally (active for all users)
+  useEffect(() => {
+    if (!currentClassId) return;
+
+    if (isLocalEditRef.current && history && Object.keys(history).length > 0) {
+      if (cloudAutoSaveTimerRef.current) clearTimeout(cloudAutoSaveTimerRef.current);
+      setSyncStatus('syncing');
+
+      cloudAutoSaveTimerRef.current = setTimeout(async () => {
+        const classId = currentClassIdRef.current;
+        const dataToSave = latestHistoryRef.current;
+        if (!classId || !dataToSave || Object.keys(dataToSave).length === 0) return;
+
+        lastLocalUploadTimeRef.current = Date.now();
+        isLocalEditRef.current = false;
+
+        try {
+          await db.collection('classes').doc(classId).set({
+            history: dataToSave,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          setSyncStatus('synced');
+        } catch (err) {
+          console.error("Auto-save to Cloud Firestore error:", err);
+          setSyncStatus('error');
+        }
+      }, 800);
+    }
+
+    return () => {
+      if (cloudAutoSaveTimerRef.current) clearTimeout(cloudAutoSaveTimerRef.current);
+    };
+  }, [history, currentClassId]);
+
+  // Flush pending auto-save immediately if browser tab is closed or navigated
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isLocalEditRef.current && currentClassIdRef.current) {
+        try {
+          db.collection('classes').doc(currentClassIdRef.current).set({
+            history: latestHistoryRef.current,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        } catch {}
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   // 1. Listen to available classes
   useEffect(() => {
@@ -177,7 +233,7 @@ export const AttendanceProvider = ({ children }) => {
         const data = doc.data();
         const cloudRoster = Array.isArray(data.roster) && data.roster.length > 0
           ? data.roster
-          : (currentClassId === 'IV_D' && !isStudent ? DEFAULT_STUDENTS_IV_D : []);
+          : (currentClassId === 'IV_D' ? DEFAULT_STUDENTS_IV_D : []);
 
         setRoster(cloudRoster);
         if (data.history) {
@@ -188,11 +244,12 @@ export const AttendanceProvider = ({ children }) => {
             const global = localStorage.getItem('attendance_history');
             if (global) localHist = { ...localHist, ...JSON.parse(global) };
           } catch {}
+          isLocalEditRef.current = false;
           setHistory({ ...localHist, ...data.history });
         }
         setSyncStatus('synced');
       } else {
-        const fallback = currentClassId === 'IV_D' && !isStudent ? DEFAULT_STUDENTS_IV_D : [];
+        const fallback = currentClassId === 'IV_D' ? DEFAULT_STUDENTS_IV_D : [];
         setRoster(fallback);
         setSyncStatus('synced');
       }
@@ -353,8 +410,9 @@ export const AttendanceProvider = ({ children }) => {
   const activeDay = getDayName(selectedDate);
   const activeSubjectInfo = timetable[activeDay]?.[selectedPeriod] || null;
 
-  // Single-period toggling (<0.1ms instant local update)
+  // Single-period toggling (<0.1ms instant local update + automatic cloud sync)
   const toggleStudentStatus = useCallback((rollNo) => {
+    isLocalEditRef.current = true;
     setHistory((prevHistory) => {
       const curRecord = prevHistory[activePeriodKey] || getHistoryEntry() || { isHoliday: false, attendance: {} };
       const curMap = curRecord.attendance || {};
@@ -382,8 +440,9 @@ export const AttendanceProvider = ({ children }) => {
     });
   }, [activePeriodKey, activeSubjectInfo, getHistoryEntry]);
 
-  // Mark all present or absent for active period
+  // Mark all present or absent for active period (+ automatic cloud sync)
   const markAllStatus = useCallback((status) => {
+    isLocalEditRef.current = true;
     setHistory((prevHistory) => {
       const curRecord = prevHistory[activePeriodKey] || { isHoliday: false, attendance: {} };
       const newMap = {};
@@ -405,11 +464,13 @@ export const AttendanceProvider = ({ children }) => {
     });
   }, [activePeriodKey, roster, activeSubjectInfo]);
 
-  // Save active period to Cloud Firestore
+  // Save active period to Cloud Firestore (manual or instant force save)
   const saveAttendance = async () => {
     if (!currentClassId) throw new Error("No class selected");
+    if (cloudAutoSaveTimerRef.current) clearTimeout(cloudAutoSaveTimerRef.current);
     setSyncStatus('syncing');
     lastLocalUploadTimeRef.current = Date.now();
+    isLocalEditRef.current = false;
 
     try {
       await db.collection('classes').doc(currentClassId).set({
@@ -491,6 +552,7 @@ export const AttendanceProvider = ({ children }) => {
       return false;
     }
 
+    isLocalEditRef.current = true;
     setHistory((prevHistory) => {
       const curRecord = prevHistory[activePeriodKey] || { isHoliday: false, attendance: {} };
       return {
@@ -508,6 +570,50 @@ export const AttendanceProvider = ({ children }) => {
 
     return true;
   }, [previousPeriod, selectedDate, currentClassId, history, activePeriodKey, activeSubjectInfo, findAnyAttendanceForDate]);
+
+  // Copy attendance from any specified period (default Period 1)
+  const copyFromPeriod = useCallback((targetPeriodNum = 1) => {
+    const targetPeriod = String(targetPeriodNum);
+    const dateVars = getDateVariants(selectedDate);
+    let sourceRec = null;
+
+    for (const d of dateVars) {
+      const k1 = `${currentClassId}_${d}_P${targetPeriod}`;
+      const k2 = `${currentClassId}_${d}_${targetPeriod}`;
+      const k3 = `${d}_P${targetPeriod}`;
+      const k4 = `${d}_${targetPeriod}`;
+      if (history[k1]?.attendance && Object.keys(history[k1].attendance).length > 0) { sourceRec = history[k1]; break; }
+      if (history[k2]?.attendance && Object.keys(history[k2].attendance).length > 0) { sourceRec = history[k2]; break; }
+      if (history[k3]?.attendance && Object.keys(history[k3].attendance).length > 0) { sourceRec = history[k3]; break; }
+      if (history[k4]?.attendance && Object.keys(history[k4].attendance).length > 0) { sourceRec = history[k4]; break; }
+    }
+
+    if (!sourceRec?.attendance || Object.keys(sourceRec.attendance).length === 0) {
+      sourceRec = findAnyAttendanceForDate(selectedDate, currentClassId);
+    }
+
+    if (!sourceRec?.attendance || Object.keys(sourceRec.attendance).length === 0) {
+      return false;
+    }
+
+    isLocalEditRef.current = true;
+    setHistory((prevHistory) => {
+      const curRecord = prevHistory[activePeriodKey] || { isHoliday: false, attendance: {} };
+      return {
+        ...prevHistory,
+        [activePeriodKey]: {
+          ...curRecord,
+          isHoliday: false,
+          attendance: { ...sourceRec.attendance },
+          subject: activeSubjectInfo?.subjectName || curRecord.subject || '',
+          faculty: activeSubjectInfo?.faculty || curRecord.faculty || '',
+          timestamp: Date.now()
+        }
+      };
+    });
+
+    return true;
+  }, [selectedDate, currentClassId, history, activePeriodKey, activeSubjectInfo, findAnyAttendanceForDate]);
 
   // Calculate statistics
   const stats = React.useMemo(() => {
@@ -550,6 +656,7 @@ export const AttendanceProvider = ({ children }) => {
     setSelectedPeriod,
     previousPeriod,
     copyFromPreviousPeriod,
+    copyFromPeriod,
     roster,
     setRoster,
     history,
@@ -576,6 +683,7 @@ export const AttendanceProvider = ({ children }) => {
     selectedPeriod,
     previousPeriod,
     copyFromPreviousPeriod,
+    copyFromPeriod,
     roster,
     history,
     timetable,

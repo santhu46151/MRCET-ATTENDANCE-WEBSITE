@@ -1,12 +1,8 @@
 import React from 'react';
 import { useAttendance } from '../context/AttendanceContext';
-import { useAuth } from '../context/AuthContext';
-import { Check, X, Save, Layers, Copy } from 'lucide-react';
 
-const StatsRing = ({ onSave, onOpenGiveAll, onCopyPrev, isSaving }) => {
-  const { stats, markAllStatus, selectedPeriod, previousPeriod } = useAttendance();
-  const { isStudent } = useAuth();
-
+const StatsRing = () => {
+  const { stats } = useAttendance();
   const { total, presentCount, absentCount, percentage } = stats;
 
   // SVG Circular progress math
@@ -24,7 +20,7 @@ const StatsRing = ({ onSave, onOpenGiveAll, onCopyPrev, isSaving }) => {
     <div className="glass-panel" style={{ padding: '1.1rem 1.25rem', marginBottom: '1.25rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.25rem' }}>
         
-        {/* Left: Circular Ring + Stat Numbers */}
+        {/* Circular Ring + Stat Numbers */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
           
           {/* Circular SVG Ring */}
@@ -79,60 +75,6 @@ const StatsRing = ({ onSave, onOpenGiveAll, onCopyPrev, isSaving }) => {
             </div>
           </div>
         </div>
-
-        {/* Right: Quick Action Controls (hidden for student) */}
-        {!isStudent && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-            {previousPeriod && (
-              <button
-                className="btn btn-outline btn-sm"
-                onClick={onCopyPrev}
-                style={{ color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
-                title={`Copy attendance recorded in Period ${previousPeriod} to Period ${selectedPeriod}`}
-              >
-                <Copy size={15} color="#38bdf8" />
-                <span>Copy P{previousPeriod}</span>
-              </button>
-            )}
-
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={() => markAllStatus('present')}
-              title="Mark all students present in active period"
-            >
-              <Check size={15} color="var(--success)" />
-              <span>All Present</span>
-            </button>
-
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={() => markAllStatus('absent')}
-              title="Mark all students absent in active period"
-            >
-              <X size={15} color="var(--danger)" />
-              <span>All Absent</span>
-            </button>
-
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={onOpenGiveAll}
-              title="Apply active attendance to all 6 periods with confirmation"
-            >
-              <Layers size={15} color="var(--primary)" />
-              <span>Give to All</span>
-            </button>
-
-            <button
-              className="btn btn-success"
-              onClick={onSave}
-              disabled={isSaving}
-              style={{ minWidth: '160px' }}
-            >
-              <Save size={16} />
-              <span>{isSaving ? 'Saving Cloud...' : `Save Period ${selectedPeriod}`}</span>
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -50,10 +50,8 @@ service cloud.firestore {
     // 2. Classes & Rosters Collection
     // ==========================================
     match /classes/{classId} {
-      // All authenticated users can read class data (students read their roster/history; staff reads all)
-      allow read: if isAuthenticated();
-      // Only Faculty, Incharge, HOD, and Admin can update attendance records or student rosters
-      allow write: if isFaculty() || isAdmin();
+      // All authenticated users can read and write class data and attendance records
+      allow read, write: if isAuthenticated();
     }
 
     // ==========================================

@@ -88,12 +88,11 @@ const Navbar = ({ onOpenTimetable, onOpenInchargeApprovals, onOpenSelfAttendance
             <select
               value={currentClassId}
               onChange={(e) => setCurrentClassId(e.target.value)}
-              disabled={isStudent}
               style={{ 
                 padding: '0.35rem 0.65rem', 
                 fontSize: '0.85rem', 
                 fontWeight: 700, 
-                cursor: isStudent ? 'not-allowed' : 'pointer' 
+                cursor: 'pointer' 
               }}
             >
               {availableClasses.length === 0 && (
