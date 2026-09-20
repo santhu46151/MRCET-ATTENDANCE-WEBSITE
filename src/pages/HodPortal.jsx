@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -33,58 +33,68 @@ const HodPortal = () => {
   };
 
   const [selectedDate, setSelectedDate] = useState(formatToday());
-  const [classesData, setClassesData] = useState([]);
+  const [rawClassesDocs, setRawClassesDocs] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Subscribe to classes on mount once (no re-subscription on date changes)
   useEffect(() => {
     setLoading(true);
     const unsub = db.collection('classes').onSnapshot((snapshot) => {
-      const list = [];
+      const docs = [];
       snapshot.forEach((doc) => {
-        const data = doc.data();
-        const id = doc.id;
-        const roster = data.roster || [];
-        const history = data.history || {};
-
-        // Find attendance for selected date across periods
-        let totalPresent = 0;
-        let totalRecords = 0;
-        let periodsFound = 0;
-
-        for (let p = 1; p <= 6; p++) {
-          const key = `${id}_${selectedDate}_P${p}`;
-          if (history[key] && history[key].attendance) {
-            periodsFound++;
-            const att = history[key].attendance;
-            Object.values(att).forEach((st) => {
-              if (st === 'present' || st === 'Approved') totalPresent++;
-              totalRecords++;
-            });
-          }
-        }
-
-        const avgPercent = totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0;
-
-        list.push({
-          id,
-          name: (data.year && data.section) ? `${data.year} ${data.branch || 'CSE'} ${data.department || 'DS'} ${data.section}` : id,
-          year: data.year || 'IV',
-          section: data.section || 'D',
-          strength: roster.length,
-          periodsRecorded: periodsFound,
-          percentage: avgPercent,
-          totalPresent,
-          totalRecords
-        });
+        docs.push({ id: doc.id, ...doc.data() });
       });
-
-      list.sort((a, b) => a.id.localeCompare(b.id));
-      setClassesData(list);
+      setRawClassesDocs(docs);
+      setLoading(false);
+    }, (err) => {
+      console.warn("HodPortal classes fetch error:", err);
       setLoading(false);
     });
 
     return () => unsub();
-  }, [selectedDate]);
+  }, []);
+
+  // Compute metrics instantly in memory when selectedDate changes (0 Firestore reads)
+  const classesData = useMemo(() => {
+    const list = [];
+    rawClassesDocs.forEach((data) => {
+      const id = data.id;
+      const roster = data.roster || [];
+      const history = data.history || {};
+
+      let totalPresent = 0;
+      let totalRecords = 0;
+      let periodsFound = 0;
+
+      for (let p = 1; p <= 6; p++) {
+        const key = `${id}_${selectedDate}_P${p}`;
+        if (history[key] && history[key].attendance) {
+          periodsFound++;
+          const att = history[key].attendance;
+          Object.values(att).forEach((st) => {
+            if (st === 'present' || st === 'Approved') totalPresent++;
+            totalRecords++;
+          });
+        }
+      }
+
+      const avgPercent = totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0;
+
+      list.push({
+        id,
+        name: (data.year && data.section) ? `${data.year} ${data.branch || 'CSE'} ${data.department || 'DS'} ${data.section}` : id,
+        year: data.year || 'IV',
+        section: data.section || 'D',
+        strength: roster.length,
+        periodsRecorded: periodsFound,
+        percentage: avgPercent,
+        totalPresent,
+        totalRecords
+      });
+    });
+
+    return list.sort((a, b) => a.id.localeCompare(b.id));
+  }, [rawClassesDocs, selectedDate]);
 
   // Overall Department KPI calculations
   const totalStudents = classesData.reduce((acc, c) => acc + c.strength, 0);

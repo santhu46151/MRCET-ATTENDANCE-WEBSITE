@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import * as XLSX from 'xlsx';
 import { useAttendance } from '../context/AttendanceContext';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
@@ -115,8 +114,9 @@ const Dashboard = () => {
     }
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     try {
+      const XLSX = await import('xlsx');
       const rows = roster.map((s, idx) => ({
         'S.No': idx + 1,
         'Roll Number': s.rollNo,
@@ -147,7 +147,7 @@ const Dashboard = () => {
   }, [roster, searchQuery]);
 
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '1rem' }}>
+    <div className="dashboard-container">
       
       {/* Download APK Banner for mobile web visitors */}
       <AppDownloadBanner />

@@ -42,7 +42,6 @@ const StudentCard = React.memo(({ student, status, onToggle, onEdit }) => {
         flexDirection: 'column',
         alignItems: 'center',
         textAlign: 'center',
-        padding: '1.15rem 0.85rem',
         borderRadius: 'var(--radius-md)',
         border: isAbsent
           ? '1.5px solid var(--danger-border)'

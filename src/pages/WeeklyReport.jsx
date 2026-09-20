@@ -3,17 +3,17 @@ import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { DEFAULT_STUDENTS_IV_D } from '../data/defaultTimetables';
-import * as XLSX from 'xlsx';
+import { fetchClassList, fetchHolidays } from '../services/cacheService';
 import { 
   FileSpreadsheet, 
   ArrowLeft, 
   Printer, 
   Download, 
   Calendar, 
-  GraduationCap,
-  Search,
-  ChevronLeft,
-  ChevronRight
+  GraduationCap, 
+  Search, 
+  ChevronLeft, 
+  ChevronRight 
 } from 'lucide-react';
 
 const WeeklyReport = () => {
@@ -57,36 +57,32 @@ const WeeklyReport = () => {
 
   const tableContainerRef = useRef(null);
 
-  // 1. Fetch available classes & holidays
+  // 1. Fetch available classes & holidays from cache
   useEffect(() => {
-    const unsubClasses = db.collection('classes').onSnapshot((snap) => {
-      const list = [];
-      snap.forEach((doc) => {
-        const id = doc.id;
-        const data = doc.data();
-        if (isStudent && user?.year && user?.section) {
-          if (id !== `${user.year}_${user.section}`) return;
+    let isMounted = true;
+
+    if (isStudent && user?.year && user?.section) {
+      const studentClassId = `${user.year}_${user.section}`;
+      setAvailableClasses([{ id: studentClassId, name: `${user.year} CSE DS ${user.section}` }]);
+      setSelectedClassId(studentClassId);
+    } else {
+      fetchClassList().then((list) => {
+        if (!isMounted) return;
+        setAvailableClasses(list);
+        if (list.length > 0 && (!selectedClassId || !list.some(c => c.id === selectedClassId))) {
+          setSelectedClassId(list[0].id);
         }
-        list.push({ 
-          id, 
-          name: (data.year && data.section) ? `${data.year} ${data.branch || 'CSE'} ${data.department || 'DS'} ${data.section}` : id 
-        });
       });
-      setAvailableClasses(list);
-      if (list.length > 0 && (!selectedClassId || !list.some(c => c.id === selectedClassId))) {
-        setSelectedClassId(list[0].id);
+    }
+
+    fetchHolidays().then((h) => {
+      if (isMounted && Array.isArray(h)) {
+        setHolidays(h);
       }
     });
 
-    const unsubHolidays = db.collection('holidays').onSnapshot((snap) => {
-      const h = [];
-      snap.forEach(d => h.push(d.data().date || d.id));
-      setHolidays(h);
-    });
-
     return () => {
-      unsubClasses();
-      unsubHolidays();
+      isMounted = false;
     };
   }, [user, isStudent]);
 
@@ -258,7 +254,8 @@ const WeeklyReport = () => {
     setCurrentWeekMonday(d);
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx');
     const headers = [
       'S.No',
       'Roll Number',

@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { db, auth, firebase } from '../firebase';
 import { useAuth } from './AuthContext';
 import { OFFICIAL_TIMETABLES, DEFAULT_STUDENTS_IV_D, PERIOD_TIMES } from '../data/defaultTimetables';
+import { fetchClassList, fetchHolidays, DEFAULT_CLASSES } from '../services/cacheService';
+
 
 const AttendanceContext = createContext(null);
 
@@ -17,16 +19,6 @@ export const AttendanceProvider = ({ children }) => {
     return `${y}-${m}-${day}`;
   };
 
-  const DEFAULT_CLASSES = [
-    { id: 'IV_D', name: 'IV CSE DS D', year: 'IV', section: 'D', department: 'DS', branch: 'CSE' },
-    { id: 'IV_C', name: 'IV CSE DS C', year: 'IV', section: 'C', department: 'DS', branch: 'CSE' },
-    { id: 'IV_B', name: 'IV CSE DS B', year: 'IV', section: 'B', department: 'DS', branch: 'CSE' },
-    { id: 'IV_A', name: 'IV CSE DS A', year: 'IV', section: 'A', department: 'DS', branch: 'CSE' },
-    { id: 'III_D', name: 'III CSE DS D', year: 'III', section: 'D', department: 'DS', branch: 'CSE' },
-    { id: 'III_C', name: 'III CSE DS C', year: 'III', section: 'C', department: 'DS', branch: 'CSE' },
-    { id: 'III_B', name: 'III CSE DS B', year: 'III', section: 'B', department: 'DS', branch: 'CSE' },
-    { id: 'III_A', name: 'III CSE DS A', year: 'III', section: 'A', department: 'DS', branch: 'CSE' }
-  ];
 
   const [availableClasses, setAvailableClasses] = useState(DEFAULT_CLASSES);
   const [currentClassId, setCurrentClassId] = useState(() => {
@@ -175,44 +167,45 @@ export const AttendanceProvider = ({ children }) => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 
-  // 1. Listen to available classes
+  // 1. Load available classes from cache / targeted query (no full-collection snapshot)
   useEffect(() => {
-    if (!auth.currentUser) return;
-
-    const unsubscribe = db.collection('classes').onSnapshot((snapshot) => {
-      const list = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        const id = doc.id;
-        if (isStudent && user?.year && user?.section) {
-          if (id !== `${user.year}_${user.section}`) return;
-        }
-        list.push({
-          id,
-          name: (data.year && data.section) ? `${data.year} ${data.branch || 'CSE'} ${data.department || 'DS'} ${data.section}` : id,
-          ...data
-        });
-      });
-
-      if (list.length > 0) {
-        list.sort((a, b) => a.id.localeCompare(b.id));
-        setAvailableClasses(list);
+    let isMounted = true;
+    if (isStudent && user?.year && user?.section) {
+      const studentClassId = `${user.year}_${user.section}`;
+      const studentClass = [{
+        id: studentClassId,
+        name: `${user.year} CSE DS ${user.section}`,
+        year: user.year,
+        section: user.section,
+        department: 'DS',
+        branch: 'CSE'
+      }];
+      setAvailableClasses(studentClass);
+      if (currentClassId !== studentClassId) {
+        setCurrentClassId(studentClassId);
       }
-    }, () => {});
+      return;
+    }
 
-    return () => unsubscribe();
-  }, [user, isStudent]);
+    fetchClassList().then((classes) => {
+      if (isMounted && classes && classes.length > 0) {
+        setAvailableClasses(classes);
+      }
+    });
 
-  // 2. Listen to global holidays
+    return () => { isMounted = false; };
+  }, [isStudent, user?.year, user?.section]);
+
+  // 2. Load global holidays from cache
   useEffect(() => {
-    if (!auth.currentUser) return;
-    const unsubscribe = db.collection('holidays').onSnapshot((snapshot) => {
-      const hList = [];
-      snapshot.forEach(doc => hList.push(doc.data()));
-      setHolidays(hList);
-    }, () => {});
-    return () => unsubscribe();
-  }, [user]);
+    let isMounted = true;
+    fetchHolidays().then((hList) => {
+      if (isMounted && Array.isArray(hList)) {
+        setHolidays(hList);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
 
   // 3. Listen to active class roster and history
   useEffect(() => {
@@ -287,9 +280,15 @@ export const AttendanceProvider = ({ children }) => {
     return () => unsubscribe();
   }, [user, currentClassId]);
 
-  // 5. Listen to attendance requests for incharge
+  // 5. Listen to attendance requests for incharge / faculty / admin only
   useEffect(() => {
-    if (!auth.currentUser || !currentClassId) return;
+    if (!currentClassId) return;
+    const canReview = user?.isClassIncharge || user?.role === 'incharge' || user?.role === 'faculty' || user?.role === 'admin';
+    if (!canReview) {
+      setInchargeRequests([]);
+      return;
+    }
+
     const reqRef = db.collection('attendance_requests')
       .where('classId', '==', currentClassId)
       .where('status', '==', 'Pending');
@@ -298,10 +297,12 @@ export const AttendanceProvider = ({ children }) => {
       const requests = [];
       snapshot.forEach(doc => requests.push({ id: doc.id, ...doc.data() }));
       setInchargeRequests(requests);
-    }, () => {});
+    }, (err) => {
+      console.warn("attendance_requests listener error:", err);
+    });
 
     return () => unsubscribe();
-  }, [user, currentClassId]);
+  }, [user?.role, user?.isClassIncharge, currentClassId]);
 
   // Helper to generate date format variants (YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY)
   const getDateVariants = (dStr) => {
@@ -395,6 +396,8 @@ export const AttendanceProvider = ({ children }) => {
   // Current attendance map for active period
   const activeRecord = useMemo(() => getHistoryEntry(), [getHistoryEntry]);
   const currentPeriodRecord = useMemo(() => activeRecord?.attendance || {}, [activeRecord]);
+  const latestRecordRef = useRef(activeRecord);
+  latestRecordRef.current = activeRecord;
 
   // Helper to determine day name
   const getDayName = (dateStr) => {
@@ -414,7 +417,7 @@ export const AttendanceProvider = ({ children }) => {
   const toggleStudentStatus = useCallback((rollNo) => {
     isLocalEditRef.current = true;
     setHistory((prevHistory) => {
-      const curRecord = prevHistory[activePeriodKey] || getHistoryEntry() || { isHoliday: false, attendance: {} };
+      const curRecord = prevHistory[activePeriodKey] || latestRecordRef.current || { isHoliday: false, attendance: {} };
       const curMap = curRecord.attendance || {};
       const currentStatus = curMap[rollNo] || 'present';
 
@@ -432,13 +435,13 @@ export const AttendanceProvider = ({ children }) => {
           ...curRecord,
           isHoliday: false,
           attendance: updatedMap,
-          subject: activeSubjectInfo?.subjectName || '',
-          faculty: activeSubjectInfo?.faculty || '',
+          subject: activeSubjectInfo?.subjectName || curRecord.subject || '',
+          faculty: activeSubjectInfo?.faculty || curRecord.faculty || '',
           timestamp: Date.now()
         }
       };
     });
-  }, [activePeriodKey, activeSubjectInfo, getHistoryEntry]);
+  }, [activePeriodKey, activeSubjectInfo]);
 
   // Mark all present or absent for active period (+ automatic cloud sync)
   const markAllStatus = useCallback((status) => {

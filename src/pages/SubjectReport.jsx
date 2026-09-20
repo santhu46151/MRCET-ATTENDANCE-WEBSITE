@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { OFFICIAL_TIMETABLES, DEFAULT_STUDENTS_IV_D } from '../data/defaultTimetables';
-import * as XLSX from 'xlsx';
+import { fetchClassList, fetchHolidays } from '../services/cacheService';
 import { 
   FileSpreadsheet, 
   ArrowLeft, 
@@ -46,36 +46,32 @@ const SubjectReport = () => {
 
   const tableContainerRef = useRef(null);
 
-  // 1. Fetch available classes & holidays
+  // 1. Fetch available classes & holidays from cache
   useEffect(() => {
-    const unsubClasses = db.collection('classes').onSnapshot((snap) => {
-      const list = [];
-      snap.forEach((doc) => {
-        const id = doc.id;
-        const data = doc.data();
-        if (isStudent && user?.year && user?.section) {
-          if (id !== `${user.year}_${user.section}`) return;
+    let isMounted = true;
+
+    if (isStudent && user?.year && user?.section) {
+      const studentClassId = `${user.year}_${user.section}`;
+      setAvailableClasses([{ id: studentClassId, name: `${user.year} CSE DS ${user.section}` }]);
+      setSelectedClassId(studentClassId);
+    } else {
+      fetchClassList().then((list) => {
+        if (!isMounted) return;
+        setAvailableClasses(list);
+        if (list.length > 0 && (!selectedClassId || !list.some(c => c.id === selectedClassId))) {
+          setSelectedClassId(list[0].id);
         }
-        list.push({ 
-          id, 
-          name: (data.year && data.section) ? `${data.year} ${data.branch || 'CSE'} ${data.department || 'DS'} ${data.section}` : id 
-        });
       });
-      setAvailableClasses(list);
-      if (list.length > 0 && (!selectedClassId || !list.some(c => c.id === selectedClassId))) {
-        setSelectedClassId(list[0].id);
+    }
+
+    fetchHolidays().then((h) => {
+      if (isMounted && Array.isArray(h)) {
+        setHolidays(h);
       }
     });
 
-    const unsubHolidays = db.collection('holidays').onSnapshot((snap) => {
-      const h = [];
-      snap.forEach(d => h.push(d.data().date || d.id));
-      setHolidays(h);
-    });
-
     return () => {
-      unsubClasses();
-      unsubHolidays();
+      isMounted = false;
     };
   }, [user, isStudent]);
 
@@ -285,15 +281,24 @@ const SubjectReport = () => {
     });
   }, [roster, subjectDates, history, selectedSubject, selectedClassId]);
 
-  // Filtered by search query
-  const filteredRows = useMemo(() => {
-    if (!searchQuery.trim()) return studentRows;
-    const q = searchQuery.toLowerCase();
-    return studentRows.filter(s => s.rollNo.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
-  }, [studentRows, searchQuery]);
+  // Extract student roll number from user profile/email
+  const studentRoll = user?.email?.split('@')[0]?.toUpperCase() || user?.name || '';
 
-  // Export to genuine Excel
-  const handleExportExcel = () => {
+  // Filtered by student role or search query
+  const filteredRows = useMemo(() => {
+    let rows = studentRows;
+    if (isStudent && studentRoll) {
+      const myRows = rows.filter(s => s.rollNo.toUpperCase().includes(studentRoll) || s.name.toUpperCase().includes(studentRoll));
+      if (myRows.length > 0) return myRows;
+    }
+    if (!searchQuery.trim()) return rows;
+    const q = searchQuery.toLowerCase();
+    return rows.filter(s => s.rollNo.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
+  }, [studentRows, isStudent, studentRoll, searchQuery]);
+
+  // Export to genuine Excel (dynamic on-demand import)
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx');
     const headers = [
       'S.No',
       'Roll Number',
@@ -304,7 +309,7 @@ const SubjectReport = () => {
       'Percentage (%)'
     ];
 
-    const dataRows = studentRows.map((s, idx) => [
+    const dataRows = filteredRows.map((s, idx) => [
       idx + 1,
       s.rollNo,
       s.name,

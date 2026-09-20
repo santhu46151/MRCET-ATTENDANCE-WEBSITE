@@ -1,0 +1,17 @@
+# Large artifacts and mobile builds
+downloads/
+android/
+*.apk
+*.aab
+.idea/
+.vscode/
+node_modules/
+dist/
+
+# Logs and environment
+.env
+.env.*
+!.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

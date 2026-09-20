@@ -27,7 +27,7 @@ const PeriodSelector = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.65rem' }}>
+      <div className="period-selector-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem' }}>
         {periods.map((p) => {
           const isSelected = String(p) === String(selectedPeriod);
           const timeSlot = periodTimes[p];

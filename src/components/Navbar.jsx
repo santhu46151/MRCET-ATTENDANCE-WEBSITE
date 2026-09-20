@@ -48,11 +48,11 @@ const Navbar = ({ onOpenTimetable, onOpenInchargeApprovals, onOpenSelfAttendance
   };
 
   return (
-    <header className="glass-panel no-print" style={{ padding: '0.85rem 1.25rem', marginBottom: '1.25rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+    <header className="glass-panel no-print navbar-header" style={{ padding: '0.85rem 1.25rem', marginBottom: '1.25rem' }}>
+      <div className="navbar-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         
         {/* Left: Brand & Class / Date selectors */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+        <div className="navbar-left" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', textDecoration: 'none', color: 'inherit' }}>
             <img 
               src="/logo.png" 
