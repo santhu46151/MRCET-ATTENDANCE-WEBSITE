@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useAttendance } from '../context/AttendanceContext';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
-import PeriodSelector from '../components/PeriodSelector';
 import StatsRing from '../components/StatsRing';
 import StudentCard from '../components/StudentCard';
 import AbsenteesSidebar from '../components/AbsenteesSidebar';
@@ -12,7 +11,6 @@ import AppDownloadBanner from '../components/AppDownloadBanner';
 import EditStudentModal from '../components/Modals/EditStudentModal';
 import InchargeApprovalsModal from '../components/Modals/InchargeApprovalsModal';
 import SelfAttendanceModal from '../components/Modals/SelfAttendanceModal';
-import GiveAllConfirmModal from '../components/Modals/GiveAllConfirmModal';
 import TimetableModal from '../components/Modals/TimetableModal';
 import { 
   Search, 
@@ -24,13 +22,11 @@ import {
   CalendarDays, 
   FileSpreadsheet, 
   Download, 
-  Clock,
-  Check,
-  X,
-  Layers,
-  Save,
-  Copy,
-  Users
+  Clock, 
+  Check, 
+  X, 
+  Save, 
+  Users 
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -40,16 +36,11 @@ const Dashboard = () => {
     currentPeriodRecord,
     toggleStudentStatus,
     saveAttendance,
-    giveAllPeriodsAttendance,
     markAllStatus,
     searchQuery,
     setSearchQuery,
-    selectedPeriod,
     selectedDate,
     currentClassId,
-    previousPeriod,
-    copyFromPreviousPeriod,
-    copyFromPeriod,
     syncStatus
   } = useAttendance();
 
@@ -57,12 +48,10 @@ const Dashboard = () => {
   const [editingStudent, setEditingStudent] = useState(null);
   const [showInchargeModal, setShowInchargeModal] = useState(false);
   const [showSelfAttendanceModal, setShowSelfAttendanceModal] = useState(false);
-  const [showGiveAllModal, setShowGiveAllModal] = useState(false);
   const [showTimetableModal, setShowTimetableModal] = useState(false);
 
   // Toast / Saving status
   const [isSaving, setIsSaving] = useState(false);
-  const [isGivingAll, setIsGivingAll] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
   const triggerToast = (msg) => {
@@ -74,43 +63,11 @@ const Dashboard = () => {
     setIsSaving(true);
     try {
       await saveAttendance();
-      triggerToast(`Attendance for Period ${selectedPeriod} saved successfully to Cloud!`);
+      triggerToast(`Attendance for ${selectedDate} saved successfully to Cloud!`);
     } catch (err) {
       triggerToast(`Error saving: ${err.message}`);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleConfirmGiveAll = async () => {
-    setIsGivingAll(true);
-    try {
-      await giveAllPeriodsAttendance();
-      setShowGiveAllModal(false);
-      triggerToast(`Period ${selectedPeriod} attendance copied to all 6 periods and saved to Cloud!`);
-    } catch (err) {
-      triggerToast(`Error: ${err.message}`);
-    } finally {
-      setIsGivingAll(false);
-    }
-  };
-
-  const handleCopyPrev = () => {
-    if (!previousPeriod) return;
-    const ok = copyFromPreviousPeriod();
-    if (ok) {
-      triggerToast(`Copied Period ${previousPeriod} attendance into Period ${selectedPeriod}!`);
-    } else {
-      triggerToast(`No attendance found in Period ${previousPeriod} to copy.`);
-    }
-  };
-
-  const handleCopyFromP1 = () => {
-    const ok = copyFromPeriod(1);
-    if (ok) {
-      triggerToast(`Copied Period 1 attendance into Period ${selectedPeriod}!`);
-    } else {
-      triggerToast(`No recorded attendance found in Period 1 for ${selectedDate}.`);
     }
   };
 
@@ -122,15 +79,14 @@ const Dashboard = () => {
         'Roll Number': s.rollNo,
         'Student Name': s.name,
         'Date': selectedDate,
-        'Period': `Period ${selectedPeriod}`,
         'Class': currentClassId,
         'Status': (currentPeriodRecord[s.rollNo] || 'present').toUpperCase()
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, `Attendance_P${selectedPeriod}`);
-      XLSX.writeFile(wb, `MRCET_${currentClassId}_${selectedDate}_P${selectedPeriod}.csv`, { bookType: 'csv' });
+      XLSX.utils.book_append_sheet(wb, ws, `Attendance_${selectedDate}`);
+      XLSX.writeFile(wb, `MRCET_${currentClassId}_${selectedDate}_DayAttendance.csv`, { bookType: 'csv' });
       triggerToast('Attendance exported to CSV successfully!');
     } catch (err) {
       triggerToast(`Export error: ${err.message}`);
@@ -191,7 +147,7 @@ const Dashboard = () => {
 
           <Link 
             to="/reports/subject" 
-            className="btn btn-primary btn-sm" 
+            className="btn btn-outline btn-sm" 
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.82rem', padding: '0.4rem 0.75rem' }}
             title="Subject-wise Attendance Register"
           >
@@ -202,7 +158,7 @@ const Dashboard = () => {
             to="/reports/weekly" 
             className="btn btn-outline btn-sm" 
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.82rem', padding: '0.4rem 0.75rem' }}
-            title="Weekly Periods 1-6 Matrix"
+            title="Weekly Attendance Matrix (Monday to Saturday)"
           >
             <Calendar size={15} /> Weekly Report
           </Link>
@@ -211,7 +167,7 @@ const Dashboard = () => {
             to="/reports/monthly" 
             className="btn btn-outline btn-sm" 
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.82rem', padding: '0.4rem 0.75rem' }}
-            title="Monthly Attendance Register"
+            title="Monthly Attendance Register (1 to 31)"
           >
             <CalendarDays size={15} /> Monthly Report
           </Link>
@@ -239,7 +195,7 @@ const Dashboard = () => {
             className="btn btn-outline btn-sm"
             onClick={handleExportCSV}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.82rem', padding: '0.4rem 0.75rem' }}
-            title="Export Current Period Attendance to CSV"
+            title="Export Day Attendance to CSV"
           >
             <Download size={15} /> Export CSV
           </button>
@@ -271,9 +227,6 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Period Selection (1 to 6) */}
-      <PeriodSelector />
-
       {/* Stats Counter */}
       <StatsRing />
 
@@ -282,27 +235,27 @@ const Dashboard = () => {
         
         {/* Left: Dedicated Attendance / Student Roster Box */}
         <section className="directory-panel glass-panel" aria-label="Student Attendance Roster">
-          {/* Box Header with Title, Period info and Quick Action Buttons */}
+          {/* Box Header with Title, Day Attendance info and Quick Action Buttons */}
           <div className="panel-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
               <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--text-primary)' }}>
                 <span>Student Roster</span>
               </h2>
               <span className="badge badge-primary" style={{ fontSize: '0.72rem' }}>
-                Period {selectedPeriod}
+                Day Attendance
               </span>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                 ({filteredRoster.length} students)
               </span>
             </div>
 
-            {/* Attendance Action Controls (visible to all users on desktop & mobile) */}
+            {/* Attendance Action Controls */}
             <div className="header-actions roster-action-buttons">
               <button
                 type="button"
                 className="btn btn-outline btn-sm action-btn-present"
                 onClick={() => markAllStatus('present')}
-                title="Mark all students present in active period"
+                title="Mark all students present today"
               >
                 <Check size={15} color="var(--success)" />
                 <span>All Present</span>
@@ -312,7 +265,7 @@ const Dashboard = () => {
                 type="button"
                 className="btn btn-outline btn-sm action-btn-absent"
                 onClick={() => markAllStatus('absent')}
-                title="Mark all students absent in active period"
+                title="Mark all students absent today"
               >
                 <X size={15} color="var(--danger)" />
                 <span>All Absent</span>
@@ -320,36 +273,14 @@ const Dashboard = () => {
 
               <button
                 type="button"
-                className="btn btn-primary btn-sm action-btn-give-all"
-                onClick={() => setShowGiveAllModal(true)}
-                title="Apply active attendance to all scheduled periods today"
+                className="btn btn-primary btn-sm"
+                onClick={handleSave}
+                disabled={isSaving}
+                title="Save attendance to Cloud Firestore immediately"
               >
-                <Layers size={15} />
-                <span>Give to All Subjects</span>
+                <Save size={15} />
+                <span>{isSaving ? 'Saving...' : 'Save to Cloud'}</span>
               </button>
-
-              {selectedPeriod !== '1' ? (
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm action-btn-copy"
-                  onClick={handleCopyFromP1}
-                  title={`Copy Period 1 attendance into Period ${selectedPeriod}`}
-                >
-                  <Copy size={14} color="#38bdf8" />
-                  <span>Copy from P1</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm action-btn-copy"
-                  disabled
-                  title="Switch to Period 2 to 6 to copy attendance from Period 1"
-                  style={{ opacity: 0.6, cursor: 'not-allowed' }}
-                >
-                  <Copy size={14} color="#38bdf8" />
-                  <span>Copy from P1</span>
-                </button>
-              )}
             </div>
           </div>
 
@@ -451,14 +382,6 @@ const Dashboard = () => {
       {showSelfAttendanceModal && (
         <SelfAttendanceModal
           onClose={() => setShowSelfAttendanceModal(false)}
-        />
-      )}
-
-      {showGiveAllModal && (
-        <GiveAllConfirmModal
-          onClose={() => setShowGiveAllModal(false)}
-          onConfirm={handleConfirmGiveAll}
-          isApplying={isGivingAll}
         />
       )}
 

@@ -34,11 +34,6 @@ export const AttendanceProvider = ({ children }) => {
     return params.get('date') || formatToday();
   });
 
-  const [selectedPeriod, setSelectedPeriod] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('period') || "1";
-  });
-
   const [roster, setRoster] = useState(() => {
     try {
       const curId = localStorage.getItem('current_class_id') || 'IV_D';
@@ -80,8 +75,9 @@ export const AttendanceProvider = ({ children }) => {
   const currentClassIdRef = useRef(currentClassId);
   currentClassIdRef.current = currentClassId;
 
-  // Period key: e.g. IV_D_2026-09-18_P1
-  const activePeriodKey = `${currentClassId}_${selectedDate}_P${selectedPeriod}`;
+  // Primary Day key: e.g. IV_D_2026-09-18
+  const activeDayKey = `${currentClassId}_${selectedDate}`;
+  const activePeriodKey = activeDayKey;
 
   // Persist local cache when roster or history changes (debounced to prevent UI lag)
   const rosterSaveTimerRef = useRef(null);
@@ -128,44 +124,59 @@ export const AttendanceProvider = ({ children }) => {
       cloudAutoSaveTimerRef.current = setTimeout(async () => {
         const classId = currentClassIdRef.current;
         const dataToSave = latestHistoryRef.current;
-        if (!classId || !dataToSave || Object.keys(dataToSave).length === 0) return;
+        const targetKey = activeDayKey;
+        const dayPayload = dataToSave[targetKey];
+        if (!classId || !dayPayload) return;
 
         lastLocalUploadTimeRef.current = Date.now();
         isLocalEditRef.current = false;
 
         try {
-          await db.collection('classes').doc(classId).set({
-            history: dataToSave,
+          // Ultra-fast targeted update: touches only the active date, zero overhead, <50ms
+          await db.collection('classes').doc(classId).update({
+            [`history.${targetKey}`]: dayPayload,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
+          });
           setSyncStatus('synced');
-        } catch (err) {
-          console.error("Auto-save to Cloud Firestore error:", err);
-          setSyncStatus('error');
+        } catch (updateErr) {
+          try {
+            await db.collection('classes').doc(classId).set({
+              history: { [targetKey]: dayPayload },
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            setSyncStatus('synced');
+          } catch (err) {
+            console.error("Auto-save to Cloud Firestore error:", err);
+            setSyncStatus('error');
+          }
         }
-      }, 800);
+      }, 400);
     }
 
     return () => {
       if (cloudAutoSaveTimerRef.current) clearTimeout(cloudAutoSaveTimerRef.current);
     };
-  }, [history, currentClassId]);
+  }, [history, currentClassId, activeDayKey]);
 
   // Flush pending auto-save immediately if browser tab is closed or navigated
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (isLocalEditRef.current && currentClassIdRef.current) {
-        try {
-          db.collection('classes').doc(currentClassIdRef.current).set({
-            history: latestHistoryRef.current,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-        } catch {}
+        const targetKey = activeDayKey;
+        const dayPayload = latestHistoryRef.current[targetKey];
+        if (dayPayload) {
+          try {
+            db.collection('classes').doc(currentClassIdRef.current).update({
+              [`history.${targetKey}`]: dayPayload,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          } catch {}
+        }
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
+  }, [activeDayKey]);
 
   // 1. Load available classes from cache / targeted query (no full-collection snapshot)
   useEffect(() => {
@@ -253,7 +264,7 @@ export const AttendanceProvider = ({ children }) => {
     return () => unsubscribe();
   }, [user, currentClassId, isStudent]);
 
-  // 4. Listen to timetable for active class
+  // 4. Listen to timetable for active class (kept for timetable modal view)
   useEffect(() => {
     if (!auth.currentUser || !currentClassId) return;
     const ttRef = db.collection('timetables').doc(currentClassId);
@@ -318,84 +329,56 @@ export const AttendanceProvider = ({ children }) => {
     return vars;
   };
 
-  // Helper to find any marked attendance record for this date (legacy compatibility)
-  const findAnyAttendanceForDate = useCallback((date, classId) => {
-    if (!date) return null;
+  // Safe multi-key resolver for Day Attendance (preserves all records from phone edits and legacy formats)
+  const getDayAttendanceRecord = useCallback((dateStr, classId) => {
+    const targetDate = dateStr || selectedDate;
     const targetClass = classId || currentClassId;
-    const dateVars = getDateVariants(date);
+    if (!targetDate) return null;
+
+    const dateVars = getDateVariants(targetDate);
 
     for (const d of dateVars) {
-      // 1. Check current period key
-      const curKey = `${targetClass}_${d}_P${selectedPeriod}`;
-      if (history[curKey]?.attendance && Object.keys(history[curKey].attendance).length > 0) {
-        return history[curKey];
+      // 1. Check direct day key (e.g. IV_D_2026-09-18 or 2026-09-18)
+      const classDayKey = `${targetClass}_${d}`;
+      if (history[classDayKey]?.attendance && Object.keys(history[classDayKey].attendance).length > 0) {
+        return history[classDayKey];
       }
-
-      // 2. Check any other period P1 to P7 for this class
-      for (let p = 1; p <= 7; p++) {
-        const k1 = `${targetClass}_${d}_P${p}`;
-        const k2 = `${targetClass}_${d}_${p}`;
-        if (history[k1]?.attendance && Object.keys(history[k1].attendance).length > 0) return history[k1];
-        if (history[k2]?.attendance && Object.keys(history[k2].attendance).length > 0) return history[k2];
-      }
-
-      // 3. Check legacy period keys
-      for (let p = 1; p <= 7; p++) {
-        const k1 = `${d}_P${p}`;
-        const k2 = `${d}_${p}`;
-        if (history[k1]?.attendance && Object.keys(history[k1].attendance).length > 0) return history[k1];
-        if (history[k2]?.attendance && Object.keys(history[k2].attendance).length > 0) return history[k2];
-      }
-
-      // 4. Check class-date whole day key
-      const classDateKey = `${targetClass}_${d}`;
-      if (history[classDateKey]?.attendance && Object.keys(history[classDateKey].attendance).length > 0) {
-        return history[classDateKey];
-      }
-
       if (history[d]?.attendance && Object.keys(history[d].attendance).length > 0) {
         return history[d];
       }
+
+      // 2. Check period keys marked from phone (e.g. IV_D_2026-09-18_P1 to P7, or IV_D_2026-09-18_1)
+      for (let p = 1; p <= 7; p++) {
+        const k1 = `${targetClass}_${d}_P${p}`;
+        const k2 = `${targetClass}_${d}_${p}`;
+        if (history[k1]?.attendance && Object.keys(history[k1].attendance).length > 0) {
+          return history[k1];
+        }
+        if (history[k2]?.attendance && Object.keys(history[k2].attendance).length > 0) {
+          return history[k2];
+        }
+      }
+
+      // 3. Check legacy un-scoped period keys (e.g. 2026-09-18_P1)
+      for (let p = 1; p <= 7; p++) {
+        const k1 = `${d}_P${p}`;
+        const k2 = `${d}_${p}`;
+        if (history[k1]?.attendance && Object.keys(history[k1].attendance).length > 0) {
+          return history[k1];
+        }
+        if (history[k2]?.attendance && Object.keys(history[k2].attendance).length > 0) {
+          return history[k2];
+        }
+      }
     }
 
     return null;
-  }, [history, currentClassId, selectedPeriod]);
+  }, [history, currentClassId, selectedDate]);
 
-  // Robust history entry lookup with multiple fallback strategies matching legacy app
-  const getHistoryEntry = useCallback(() => {
-    const dateVars = getDateVariants(selectedDate);
-
-    for (const d of dateVars) {
-      const fullKey = `${currentClassId}_${d}_P${selectedPeriod}`;
-      if (history[fullKey]?.attendance && Object.keys(history[fullKey].attendance).length > 0) return history[fullKey];
-
-      const fullKeyAlt = `${currentClassId}_${d}_${selectedPeriod}`;
-      if (history[fullKeyAlt]?.attendance && Object.keys(history[fullKeyAlt].attendance).length > 0) return history[fullKeyAlt];
-
-      const legacyKey = `${d}_P${selectedPeriod}`;
-      if (history[legacyKey]?.attendance && Object.keys(history[legacyKey].attendance).length > 0) return history[legacyKey];
-
-      const legacyKeyAlt = `${d}_${selectedPeriod}`;
-      if (history[legacyKeyAlt]?.attendance && Object.keys(history[legacyKeyAlt].attendance).length > 0) return history[legacyKeyAlt];
-
-      const classDateKey = `${currentClassId}_${d}`;
-      if (history[classDateKey]?.attendance && Object.keys(history[classDateKey].attendance).length > 0) return history[classDateKey];
-
-      if (history[d]?.attendance && Object.keys(history[d].attendance).length > 0) return history[d];
-    }
-
-    // Fallback to any previous attendance record for today (gives previous attendance to all subjects)
-    const prevDayRec = findAnyAttendanceForDate(selectedDate, currentClassId);
-    if (prevDayRec?.attendance && Object.keys(prevDayRec.attendance).length > 0) {
-      return prevDayRec;
-    }
-
-    return null;
-  }, [history, currentClassId, selectedDate, selectedPeriod, findAnyAttendanceForDate]);
-
-  // Current attendance map for active period
-  const activeRecord = useMemo(() => getHistoryEntry(), [getHistoryEntry]);
-  const currentPeriodRecord = useMemo(() => activeRecord?.attendance || {}, [activeRecord]);
+  // Current day's resolved record
+  const activeRecord = useMemo(() => getDayAttendanceRecord(selectedDate, currentClassId), [getDayAttendanceRecord, selectedDate, currentClassId]);
+  const currentDayRecord = useMemo(() => activeRecord?.attendance || {}, [activeRecord]);
+  const currentPeriodRecord = currentDayRecord;
   const latestRecordRef = useRef(activeRecord);
   latestRecordRef.current = activeRecord;
 
@@ -411,13 +394,12 @@ export const AttendanceProvider = ({ children }) => {
   };
 
   const activeDay = getDayName(selectedDate);
-  const activeSubjectInfo = timetable[activeDay]?.[selectedPeriod] || null;
 
-  // Single-period toggling (<0.1ms instant local update + automatic cloud sync)
+  // Toggle student status for the DAY (<0.1ms instant local update + automatic cloud sync)
   const toggleStudentStatus = useCallback((rollNo) => {
     isLocalEditRef.current = true;
     setHistory((prevHistory) => {
-      const curRecord = prevHistory[activePeriodKey] || latestRecordRef.current || { isHoliday: false, attendance: {} };
+      const curRecord = prevHistory[activeDayKey] || latestRecordRef.current || { isHoliday: false, attendance: {} };
       const curMap = curRecord.attendance || {};
       const currentStatus = curMap[rollNo] || 'present';
 
@@ -429,45 +411,45 @@ export const AttendanceProvider = ({ children }) => {
         [rollNo]: newStatus
       };
 
+      const dayPayload = {
+        ...curRecord,
+        isHoliday: false,
+        attendance: updatedMap,
+        timestamp: Date.now()
+      };
+
       return {
         ...prevHistory,
-        [activePeriodKey]: {
-          ...curRecord,
-          isHoliday: false,
-          attendance: updatedMap,
-          subject: activeSubjectInfo?.subjectName || curRecord.subject || '',
-          faculty: activeSubjectInfo?.faculty || curRecord.faculty || '',
-          timestamp: Date.now()
-        }
+        [activeDayKey]: dayPayload
       };
     });
-  }, [activePeriodKey, activeSubjectInfo]);
+  }, [activeDayKey]);
 
-  // Mark all present or absent for active period (+ automatic cloud sync)
+  // Mark all present or absent for the DAY (+ automatic cloud sync)
   const markAllStatus = useCallback((status) => {
     isLocalEditRef.current = true;
     setHistory((prevHistory) => {
-      const curRecord = prevHistory[activePeriodKey] || { isHoliday: false, attendance: {} };
+      const curRecord = prevHistory[activeDayKey] || latestRecordRef.current || { isHoliday: false, attendance: {} };
       const newMap = {};
       roster.forEach((s) => {
         newMap[s.rollNo] = status;
       });
 
+      const dayPayload = {
+        ...curRecord,
+        isHoliday: false,
+        attendance: newMap,
+        timestamp: Date.now()
+      };
+
       return {
         ...prevHistory,
-        [activePeriodKey]: {
-          ...curRecord,
-          isHoliday: false,
-          attendance: newMap,
-          subject: activeSubjectInfo?.subjectName || '',
-          faculty: activeSubjectInfo?.faculty || '',
-          timestamp: Date.now()
-        }
+        [activeDayKey]: dayPayload
       };
     });
-  }, [activePeriodKey, roster, activeSubjectInfo]);
+  }, [activeDayKey, roster]);
 
-  // Save active period to Cloud Firestore (manual or instant force save)
+  // Save Day Attendance to Cloud Firestore (manual or instant force save, <50ms targeted update)
   const saveAttendance = async () => {
     if (!currentClassId) throw new Error("No class selected");
     if (cloudAutoSaveTimerRef.current) clearTimeout(cloudAutoSaveTimerRef.current);
@@ -475,148 +457,37 @@ export const AttendanceProvider = ({ children }) => {
     lastLocalUploadTimeRef.current = Date.now();
     isLocalEditRef.current = false;
 
+    const targetKey = activeDayKey;
+    const dayPayload = history[targetKey] || latestRecordRef.current;
+    if (!dayPayload) {
+      setSyncStatus('synced');
+      return true;
+    }
+
     try {
-      await db.collection('classes').doc(currentClassId).set({
-        history: history,
+      // Ultra-fast targeted update without index bloat
+      await db.collection('classes').doc(currentClassId).update({
+        [`history.${targetKey}`]: dayPayload,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+      });
 
       setSyncStatus('synced');
       return true;
     } catch (err) {
-      console.error("Save attendance error:", err);
-      setSyncStatus('error');
-      throw err;
+      try {
+        await db.collection('classes').doc(currentClassId).set({
+          history: { [targetKey]: dayPayload },
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        setSyncStatus('synced');
+        return true;
+      } catch (setErr) {
+        console.error("Save attendance error:", setErr);
+        setSyncStatus('error');
+        throw setErr;
+      }
     }
   };
-
-  // Give attendance to all periods (1 to 6)
-  const giveAllPeriodsAttendance = async () => {
-    const curMap = currentPeriodRecord;
-    const updatedHistory = { ...history };
-
-    for (let p = 1; p <= 6; p++) {
-      const key = `${currentClassId}_${selectedDate}_P${p}`;
-      const subj = timetable[activeDay]?.[String(p)];
-      updatedHistory[key] = {
-        isHoliday: false,
-        attendance: { ...curMap },
-        subject: subj?.subjectName || '',
-        faculty: subj?.faculty || '',
-        timestamp: Date.now()
-      };
-    }
-
-    setHistory(updatedHistory);
-    lastLocalUploadTimeRef.current = Date.now();
-    setSyncStatus('syncing');
-
-    try {
-      await db.collection('classes').doc(currentClassId).set({
-        history: updatedHistory,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-      setSyncStatus('synced');
-      return true;
-    } catch (err) {
-      console.error("Bulk attendance save error:", err);
-      setSyncStatus('error');
-      throw err;
-    }
-  };
-
-  // Previous period identifier (e.g., if selectedPeriod is "2", previous is "1")
-  const previousPeriod = Number(selectedPeriod) > 1 ? String(Number(selectedPeriod) - 1) : null;
-
-  // Copy attendance from previous period (e.g. P1 into P2)
-  const copyFromPreviousPeriod = useCallback(() => {
-    if (!previousPeriod) return false;
-
-    const dateVars = getDateVariants(selectedDate);
-    let sourceRec = null;
-
-    for (const d of dateVars) {
-      const k1 = `${currentClassId}_${d}_P${previousPeriod}`;
-      const k2 = `${currentClassId}_${d}_${previousPeriod}`;
-      const k3 = `${d}_P${previousPeriod}`;
-      const k4 = `${d}_${previousPeriod}`;
-      if (history[k1]?.attendance && Object.keys(history[k1].attendance).length > 0) { sourceRec = history[k1]; break; }
-      if (history[k2]?.attendance && Object.keys(history[k2].attendance).length > 0) { sourceRec = history[k2]; break; }
-      if (history[k3]?.attendance && Object.keys(history[k3].attendance).length > 0) { sourceRec = history[k3]; break; }
-      if (history[k4]?.attendance && Object.keys(history[k4].attendance).length > 0) { sourceRec = history[k4]; break; }
-    }
-
-    // Fallback: any previous attendance recorded for this date
-    if (!sourceRec?.attendance || Object.keys(sourceRec.attendance).length === 0) {
-      sourceRec = findAnyAttendanceForDate(selectedDate, currentClassId);
-    }
-
-    if (!sourceRec?.attendance || Object.keys(sourceRec.attendance).length === 0) {
-      return false;
-    }
-
-    isLocalEditRef.current = true;
-    setHistory((prevHistory) => {
-      const curRecord = prevHistory[activePeriodKey] || { isHoliday: false, attendance: {} };
-      return {
-        ...prevHistory,
-        [activePeriodKey]: {
-          ...curRecord,
-          isHoliday: false,
-          attendance: { ...sourceRec.attendance },
-          subject: activeSubjectInfo?.subjectName || curRecord.subject || '',
-          faculty: activeSubjectInfo?.faculty || curRecord.faculty || '',
-          timestamp: Date.now()
-        }
-      };
-    });
-
-    return true;
-  }, [previousPeriod, selectedDate, currentClassId, history, activePeriodKey, activeSubjectInfo, findAnyAttendanceForDate]);
-
-  // Copy attendance from any specified period (default Period 1)
-  const copyFromPeriod = useCallback((targetPeriodNum = 1) => {
-    const targetPeriod = String(targetPeriodNum);
-    const dateVars = getDateVariants(selectedDate);
-    let sourceRec = null;
-
-    for (const d of dateVars) {
-      const k1 = `${currentClassId}_${d}_P${targetPeriod}`;
-      const k2 = `${currentClassId}_${d}_${targetPeriod}`;
-      const k3 = `${d}_P${targetPeriod}`;
-      const k4 = `${d}_${targetPeriod}`;
-      if (history[k1]?.attendance && Object.keys(history[k1].attendance).length > 0) { sourceRec = history[k1]; break; }
-      if (history[k2]?.attendance && Object.keys(history[k2].attendance).length > 0) { sourceRec = history[k2]; break; }
-      if (history[k3]?.attendance && Object.keys(history[k3].attendance).length > 0) { sourceRec = history[k3]; break; }
-      if (history[k4]?.attendance && Object.keys(history[k4].attendance).length > 0) { sourceRec = history[k4]; break; }
-    }
-
-    if (!sourceRec?.attendance || Object.keys(sourceRec.attendance).length === 0) {
-      sourceRec = findAnyAttendanceForDate(selectedDate, currentClassId);
-    }
-
-    if (!sourceRec?.attendance || Object.keys(sourceRec.attendance).length === 0) {
-      return false;
-    }
-
-    isLocalEditRef.current = true;
-    setHistory((prevHistory) => {
-      const curRecord = prevHistory[activePeriodKey] || { isHoliday: false, attendance: {} };
-      return {
-        ...prevHistory,
-        [activePeriodKey]: {
-          ...curRecord,
-          isHoliday: false,
-          attendance: { ...sourceRec.attendance },
-          subject: activeSubjectInfo?.subjectName || curRecord.subject || '',
-          faculty: activeSubjectInfo?.faculty || curRecord.faculty || '',
-          timestamp: Date.now()
-        }
-      };
-    });
-
-    return true;
-  }, [selectedDate, currentClassId, history, activePeriodKey, activeSubjectInfo, findAnyAttendanceForDate]);
 
   // Calculate statistics
   const stats = React.useMemo(() => {
@@ -647,7 +518,7 @@ export const AttendanceProvider = ({ children }) => {
       absentees,
       presentees
     };
-  }, [roster, currentPeriodRecord]);
+  }, [roster, currentDayRecord]);
 
   const value = useMemo(() => ({
     availableClasses,
@@ -655,11 +526,8 @@ export const AttendanceProvider = ({ children }) => {
     setCurrentClassId,
     selectedDate,
     setSelectedDate,
-    selectedPeriod,
-    setSelectedPeriod,
-    previousPeriod,
-    copyFromPreviousPeriod,
-    copyFromPeriod,
+    selectedPeriod: "1",
+    setSelectedPeriod: () => {},
     roster,
     setRoster,
     history,
@@ -669,24 +537,21 @@ export const AttendanceProvider = ({ children }) => {
     searchQuery,
     setSearchQuery,
     inchargeRequests,
-    activePeriodKey,
+    activeDayKey,
+    activePeriodKey: activeDayKey,
     activeDay,
-    activeSubjectInfo,
-    currentPeriodRecord,
+    currentDayRecord,
+    currentPeriodRecord: currentDayRecord,
+    getDayAttendanceRecord,
     toggleStudentStatus,
     markAllStatus,
     saveAttendance,
-    giveAllPeriodsAttendance,
     stats,
     periodTimes: PERIOD_TIMES
   }), [
     availableClasses,
     currentClassId,
     selectedDate,
-    selectedPeriod,
-    previousPeriod,
-    copyFromPreviousPeriod,
-    copyFromPeriod,
     roster,
     history,
     timetable,
@@ -694,14 +559,13 @@ export const AttendanceProvider = ({ children }) => {
     syncStatus,
     searchQuery,
     inchargeRequests,
-    activePeriodKey,
+    activeDayKey,
     activeDay,
-    activeSubjectInfo,
-    currentPeriodRecord,
+    currentDayRecord,
+    getDayAttendanceRecord,
     toggleStudentStatus,
     markAllStatus,
     saveAttendance,
-    giveAllPeriodsAttendance,
     stats
   ]);
 

@@ -34,5 +34,11 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "classes",
+      "fieldPath": "history",
+      "indexes": []
+    }
+  ]
 }

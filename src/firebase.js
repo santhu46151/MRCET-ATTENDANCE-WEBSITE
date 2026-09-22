@@ -32,9 +32,9 @@ if (!secondaryApp) {
 export const db = firebase.firestore();
 
 try {
-  db.enablePersistence().catch((err) => {
+  db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
     if (err.code === 'failed-precondition') {
-      console.warn("Multiple tabs open, offline persistence can only be enabled in one tab at a time.");
+      console.warn("Multiple tabs open, offline persistence fallback active.");
     } else if (err.code === 'unimplemented') {
       console.warn("Browser does not support all features required for persistence");
     }

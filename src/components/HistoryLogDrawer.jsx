@@ -3,48 +3,43 @@ import { useAttendance } from '../context/AttendanceContext';
 import { History, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 
 const HistoryLogDrawer = () => {
-  const { history, currentClassId, setSelectedDate, setSelectedPeriod } = useAttendance();
+  const { history, currentClassId, setSelectedDate, getDayAttendanceRecord } = useAttendance();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Filter history keys for currentClassId (memoized)
+  // Group history keys by distinct recorded Date (memoized)
   const historyEntries = useMemo(() => {
-    return Object.keys(history)
-      .filter((k) => {
-        if (k.startsWith(`${currentClassId}_`)) return true;
-        const dateMatch = k.match(/\d{4}-\d{2}-\d{2}/);
-        if (dateMatch && !k.includes('IV_') && !k.includes('III_')) return true;
-        return false;
-      })
-      .map((k) => {
-        const dateMatch = k.match(/\d{4}-\d{2}-\d{2}/);
-        const date = dateMatch ? dateMatch[0] : '';
-        const periodMatch = k.match(/_P?(\d+)$/);
-        const period = periodMatch ? periodMatch[1] : '1';
+    const datesMap = new Map();
 
-        const entry = history[k] || {};
-        const attMap = entry.attendance || {};
-        const present = Object.values(attMap).filter(v => v === 'present' || v === 'Approved').length;
-        const total = Object.keys(attMap).length;
-        const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+    Object.keys(history).forEach((k) => {
+      // Must match class or legacy unscoped
+      if (k.startsWith(`${currentClassId}_`) || (!k.includes('IV_') && !k.includes('III_') && !k.includes('II_') && !k.includes('I_'))) {
+        const dateMatch = k.match(/\d{4}-\d{2}-\d{2}/);
+        if (dateMatch) {
+          const date = dateMatch[0];
+          datesMap.set(date, true);
+        }
+      }
+    });
 
-        return {
-          key: k,
-          date: date || 'Today',
-          period,
-          subject: entry.subject || entry.subjectName || 'General',
-          faculty: entry.faculty || '',
+    const entries = [];
+    datesMap.forEach((_, date) => {
+      const rec = getDayAttendanceRecord ? getDayAttendanceRecord(date, currentClassId) : null;
+      const attMap = rec?.attendance || {};
+      const present = Object.values(attMap).filter(v => v === 'present' || v === 'Approved').length;
+      const total = Object.keys(attMap).length;
+      if (total > 0) {
+        const pct = Math.round((present / total) * 100);
+        entries.push({
+          date,
           present,
           total,
-          percentage: pct,
-          timestamp: entry.timestamp || (date ? new Date(date).getTime() : 0)
-        };
-      })
-      .filter((item) => item.date !== '')
-      .sort((a, b) => {
-        if (b.date !== a.date) return b.date.localeCompare(a.date);
-        return Number(b.period) - Number(a.period);
-      });
-  }, [history, currentClassId]);
+          percentage: pct
+        });
+      }
+    });
+
+    return entries.sort((a, b) => b.date.localeCompare(a.date));
+  }, [history, currentClassId, getDayAttendanceRecord]);
 
   return (
     <div className="glass-panel" style={{ padding: '0.85rem 1.25rem', marginTop: '1.25rem' }}>
@@ -61,7 +56,7 @@ const HistoryLogDrawer = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <History size={18} color="var(--primary)" />
           <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Attendance History Logs ({historyEntries.length} Recorded Periods)
+            Attendance History Logs ({historyEntries.length} Recorded Dates)
           </span>
         </div>
         {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -71,41 +66,34 @@ const HistoryLogDrawer = () => {
         <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px solid var(--card-border)' }}>
           {historyEntries.length === 0 ? (
             <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>
-              No past periods saved for class {currentClassId} yet.
+              No past dates saved for class {currentClassId} yet.
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.65rem', maxHeight: '300px', overflowY: 'auto' }}>
-              {historyEntries.slice(0, 20).map((log) => (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.65rem', maxHeight: '300px', overflowY: 'auto' }}>
+              {historyEntries.slice(0, 30).map((log) => (
                 <div
-                  key={log.key}
-                  onClick={() => {
-                    setSelectedDate(log.date);
-                    setSelectedPeriod(log.period);
-                  }}
+                  key={log.date}
+                  onClick={() => setSelectedDate(log.date)}
                   style={{
                     background: 'rgba(255, 255, 255, 0.03)',
                     border: '1px solid var(--card-border)',
                     borderRadius: 'var(--radius-sm)',
-                    padding: '0.6rem 0.75rem',
+                    padding: '0.65rem 0.85rem',
                     cursor: 'pointer',
                     transition: 'var(--transition)'
                   }}
-                  title="Click to view/edit this period"
+                  title={`Click to view attendance for ${log.date}`}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
-                    <span style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--primary)' }}>
-                      Period {log.period}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <span style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Calendar size={14} color="var(--primary)" /> {log.date}
                     </span>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: log.percentage >= 75 ? 'var(--success)' : 'var(--danger)' }}>
-                      {log.percentage}% ({log.present}/{log.total})
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: log.percentage >= 75 ? 'var(--success)' : 'var(--danger)' }}>
+                      {log.percentage}%
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {log.subject}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                    <span>{log.date}</span>
-                    <span>{log.faculty}</span>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Present: <strong style={{ color: 'var(--text-primary)' }}>{log.present}</strong> / {log.total} students
                   </div>
                 </div>
               ))}

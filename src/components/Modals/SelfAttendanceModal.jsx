@@ -9,11 +9,9 @@ const SelfAttendanceModal = ({ onClose }) => {
   const { 
     currentClassId, 
     selectedDate, 
-    selectedPeriod, 
-    activeSubjectInfo,
-    setHistory,
-    activePeriodKey,
-    history
+    setHistory, 
+    activeDayKey,
+    history 
   } = useAttendance();
 
   const [reason, setReason] = useState('');
@@ -36,8 +34,6 @@ const SelfAttendanceModal = ({ onClose }) => {
         name: user?.name || studentRoll,
         classId: currentClassId,
         date: selectedDate,
-        period: selectedPeriod,
-        subject: activeSubjectInfo?.subjectName || 'General',
         reason: reason.trim(),
         status: 'Pending',
         requestedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -49,7 +45,7 @@ const SelfAttendanceModal = ({ onClose }) => {
       await db.collection('notifications').add({
         type: 'attendance_request',
         title: 'New Self-Attendance Request',
-        message: `${studentRoll} (${user?.name}) requested attendance for Period ${selectedPeriod} (${selectedDate}).`,
+        message: `${studentRoll} (${user?.name}) requested day attendance for ${selectedDate}.`,
         classId: currentClassId,
         recipientRole: 'incharge',
         read: false,
@@ -57,10 +53,10 @@ const SelfAttendanceModal = ({ onClose }) => {
       });
 
       // Update local state to show 'Pending' immediately on student card
-      const curRecord = history[activePeriodKey] || { isHoliday: false, attendance: {} };
+      const curRecord = history[activeDayKey] || { isHoliday: false, attendance: {} };
       setHistory({
         ...history,
-        [activePeriodKey]: {
+        [activeDayKey]: {
           ...curRecord,
           attendance: {
             ...(curRecord.attendance || {}),
@@ -118,8 +114,7 @@ const SelfAttendanceModal = ({ onClose }) => {
           <form onSubmit={handleSubmit}>
             <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--card-border)', marginBottom: '1.25rem', fontSize: '0.85rem' }}>
               <div><strong>Class:</strong> {currentClassId}</div>
-              <div style={{ marginTop: '0.25rem' }}><strong>Date:</strong> {selectedDate}</div>
-              <div style={{ marginTop: '0.25rem' }}><strong>Period:</strong> Period {selectedPeriod} ({activeSubjectInfo?.subjectName || 'General'})</div>
+              <div style={{ marginTop: '0.25rem' }}><strong>Date:</strong> {selectedDate} (Day Attendance)</div>
               <div style={{ marginTop: '0.25rem' }}><strong>Student Roll:</strong> {studentRoll} ({user?.name})</div>
             </div>
 

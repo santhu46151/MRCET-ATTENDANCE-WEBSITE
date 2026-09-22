@@ -64,17 +64,29 @@ const HodPortal = () => {
 
       let totalPresent = 0;
       let totalRecords = 0;
-      let periodsFound = 0;
+      let dayRecordFound = false;
 
-      for (let p = 1; p <= 6; p++) {
-        const key = `${id}_${selectedDate}_P${p}`;
-        if (history[key] && history[key].attendance) {
-          periodsFound++;
-          const att = history[key].attendance;
-          Object.values(att).forEach((st) => {
-            if (st === 'present' || st === 'Approved') totalPresent++;
-            totalRecords++;
-          });
+      // Check day record first
+      const dayKey = `${id}_${selectedDate}`;
+      const rec = history[dayKey] || history[selectedDate];
+      if (rec && rec.attendance && Object.keys(rec.attendance).length > 0) {
+        dayRecordFound = true;
+        Object.values(rec.attendance).forEach((st) => {
+          if (st === 'present' || st === 'Approved') totalPresent++;
+          totalRecords++;
+        });
+      } else {
+        // Fallback to period keys if marked under periods on phone
+        for (let p = 1; p <= 6; p++) {
+          const key = `${id}_${selectedDate}_P${p}`;
+          if (history[key] && history[key].attendance && Object.keys(history[key].attendance).length > 0) {
+            dayRecordFound = true;
+            Object.values(history[key].attendance).forEach((st) => {
+              if (st === 'present' || st === 'Approved') totalPresent++;
+              totalRecords++;
+            });
+            break; // take one period as day record representation
+          }
         }
       }
 
@@ -147,6 +159,11 @@ const HodPortal = () => {
           <Link to="/reports/subject" className="btn btn-outline btn-sm">
             <FileText size={15} />
             <span>Subject Report</span>
+          </Link>
+
+          <Link to="/reports/monthly" className="btn btn-outline btn-sm">
+            <FileText size={15} />
+            <span>Monthly Report</span>
           </Link>
 
           <button className="btn btn-primary btn-sm" onClick={handlePrint}>

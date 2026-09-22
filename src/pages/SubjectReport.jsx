@@ -169,22 +169,51 @@ const SubjectReport = () => {
         // Check if subject was scheduled on this day in timetable
         const isScheduled = scheduledDaysSet.has(dayName);
 
-        // Or check if actual attendance was recorded for this subject on this date
+        // Check if attendance was recorded for this date (either day key or any period)
         let hasRecorded = false;
-        for (let p = 1; p <= 7; p++) {
-          const rec = history[`${selectedClassId}_${dateKey}_P${p}`] || history[`${dateKey}_P${p}`];
-          if (rec?.subject && rec.subject.trim().toUpperCase() === selectedSubject.trim().toUpperCase()) {
+        const dateVars = [dateKey];
+        const parts = dateKey.split('-');
+        if (parts.length === 3) {
+          const [yy, mm, dd] = parts;
+          dateVars.push(`${dd}/${mm}/${yy}`);
+          dateVars.push(`${dd}-${mm}-${yy}`);
+          dateVars.push(`${parseInt(dd, 10)}/${parseInt(mm, 10)}/${yy}`);
+        }
+
+        for (const dk of dateVars) {
+          if (history[`${selectedClassId}_${dk}`]?.attendance && Object.keys(history[`${selectedClassId}_${dk}`].attendance).length > 0) {
             hasRecorded = true;
             break;
           }
+          if (history[dk]?.attendance && Object.keys(history[dk].attendance).length > 0) {
+            hasRecorded = true;
+            break;
+          }
+          for (let p = 1; p <= 7; p++) {
+            const k1 = `${selectedClassId}_${dk}_P${p}`;
+            const k2 = `${dk}_P${p}`;
+            if (history[k1]?.attendance && Object.keys(history[k1].attendance).length > 0) {
+              hasRecorded = true;
+              break;
+            }
+            if (history[k2]?.attendance && Object.keys(history[k2].attendance).length > 0) {
+              hasRecorded = true;
+              break;
+            }
+          }
+          if (hasRecorded) break;
         }
 
-        if (isScheduled || hasRecorded) {
-          dates.push({
-            dateKey,
-            displayDate: `${d}/${m}`,
-            dayName: dayName.substring(0, 3)
-          });
+        // Subject date is active if scheduled and attendance was taken on that day, OR if explicitly recorded
+        if ((isScheduled && hasRecorded) || hasRecorded) {
+          // If scheduledDaysSet is non-empty, only include if scheduled on this day
+          if (scheduledDaysSet.size === 0 || isScheduled) {
+            dates.push({
+              dateKey,
+              displayDate: `${d}/${m}`,
+              dayName: dayName.substring(0, 3)
+            });
+          }
         }
       }
 
@@ -192,9 +221,10 @@ const SubjectReport = () => {
     }
 
     return dates;
-  }, [startDate, endDate, scheduledDaysSet, selectedSubject, history, holidays, selectedClassId]);
+  }, [startDate, endDate, scheduledDaysSet, history, holidays, selectedClassId]);
 
   // Helper to get attendance status for a student on a specific date for selectedSubject
+  // Any marked day attendance automatically applies to all scheduled subjects of that date!
   const getSubjectAttendanceStatus = (dateKey, rollNo) => {
     let hasRecord = false;
     let isAbsent = false;
@@ -210,28 +240,7 @@ const SubjectReport = () => {
     }
 
     for (const dk of dateVars) {
-      for (let p = 1; p <= 7; p++) {
-        const k1 = `${selectedClassId}_${dk}_P${p}`;
-        const k2 = `${dk}_P${p}`;
-        const k3 = `${selectedClassId}_${dk}_${p}`;
-        const k4 = `${dk}_${p}`;
-        const rec = history[k1] || history[k2] || history[k3] || history[k4];
-
-        if (rec?.attendance) {
-          const sub = (rec.subject || rec.subjectName || '').trim().toUpperCase();
-          if (!selectedSubject || sub === selectedSubject.trim().toUpperCase() || sub.includes(selectedSubject.trim().toUpperCase())) {
-            if (rec.attendance[rollNo] !== undefined) {
-              hasRecord = true;
-              const st = String(rec.attendance[rollNo]).toLowerCase();
-              if (st === 'absent' || st === 'ab') {
-                isAbsent = true;
-              }
-            }
-          }
-        }
-      }
-
-      // Direct day key fallback
+      // 1. Check direct day key (e.g. IV_D_YYYY-MM-DD)
       const dayRec = history[`${selectedClassId}_${dk}`] || history[dk];
       if (dayRec?.attendance && dayRec.attendance[rollNo] !== undefined) {
         hasRecord = true;
@@ -239,7 +248,27 @@ const SubjectReport = () => {
         if (st === 'absent' || st === 'ab') {
           isAbsent = true;
         }
+        break;
       }
+
+      // 2. Check period keys (P1 to P7)
+      for (let p = 1; p <= 7; p++) {
+        const k1 = `${selectedClassId}_${dk}_P${p}`;
+        const k2 = `${dk}_P${p}`;
+        const k3 = `${selectedClassId}_${dk}_${p}`;
+        const k4 = `${dk}_${p}`;
+        const rec = history[k1] || history[k2] || history[k3] || history[k4];
+
+        if (rec?.attendance && rec.attendance[rollNo] !== undefined) {
+          hasRecord = true;
+          const st = String(rec.attendance[rollNo]).toLowerCase();
+          if (st === 'absent' || st === 'ab') {
+            isAbsent = true;
+          }
+          break;
+        }
+      }
+      if (hasRecord) break;
     }
 
     if (!hasRecord) return 'PRESENT'; // Default present if scheduled

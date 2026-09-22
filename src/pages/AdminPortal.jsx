@@ -192,6 +192,10 @@ const AdminPortal = () => {
             <FileSpreadsheet size={15} />
             <span>Subject Register</span>
           </Link>
+          <Link to="/reports/monthly" className="btn btn-outline btn-sm">
+            <FileSpreadsheet size={15} />
+            <span>Monthly Register</span>
+          </Link>
           <Link to="/hod" className="btn btn-outline btn-sm">
             HOD Portal
           </Link>

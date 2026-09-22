@@ -20,12 +20,11 @@ const InchargeApprovalsModal = ({ onClose }) => {
         reviewedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
 
-      // 2. Immediately update period attendance in history so it counts as Present
-      const targetPeriod = req.period || '1';
+      // 2. Immediately update day attendance in history so it counts as Present
       const targetDate = req.date;
-      const periodKey = `${currentClassId}_${targetDate}_P${targetPeriod}`;
+      const dayKey = `${currentClassId}_${targetDate}`;
 
-      const curRecord = history[periodKey] || { isHoliday: false, attendance: {} };
+      const curRecord = history[dayKey] || { isHoliday: false, attendance: {} };
       const updatedMap = {
         ...(curRecord.attendance || {}),
         [req.rollNo]: 'Approved'
@@ -33,13 +32,24 @@ const InchargeApprovalsModal = ({ onClose }) => {
 
       const updatedHistory = {
         ...history,
-        [periodKey]: {
+        [dayKey]: {
           ...curRecord,
           isHoliday: false,
           attendance: updatedMap,
           timestamp: Date.now()
         }
       };
+
+      // Also mirror to P1..P6 so phone view stays synced
+      for (let p = 1; p <= 6; p++) {
+        const pKey = `${currentClassId}_${targetDate}_P${p}`;
+        updatedHistory[pKey] = {
+          ...(history[pKey] || {}),
+          isHoliday: false,
+          attendance: updatedMap,
+          timestamp: Date.now()
+        };
+      }
 
       setHistory(updatedHistory);
 
@@ -142,7 +152,7 @@ const InchargeApprovalsModal = ({ onClose }) => {
                     </span>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                    Date: <strong>{req.date}</strong> | Period: <strong>P{req.period}</strong> ({req.subject || 'General'})
+                    Date: <strong>{req.date}</strong> (Day Attendance)
                   </div>
                   {req.reason && (
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem', fontStyle: 'italic' }}>
